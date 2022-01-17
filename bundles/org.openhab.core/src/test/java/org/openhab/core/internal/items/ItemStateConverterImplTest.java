@@ -97,7 +97,7 @@ public class ItemStateConverterImplTest {
         Locale.setDefault(locale);
 
         Item item = new NumberItem("number");
-        State originalState = new PercentType("42");
+        State originalState = new PercentType("0.42");
         State convertedState = itemStateConverter.convertToAcceptedState(originalState, item);
 
         assertThat(convertedState, is(new DecimalType("0.42")));

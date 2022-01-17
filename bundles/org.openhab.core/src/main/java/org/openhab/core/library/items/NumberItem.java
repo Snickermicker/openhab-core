@@ -25,6 +25,7 @@ import org.openhab.core.items.GenericItem;
 import org.openhab.core.items.ItemUtil;
 import org.openhab.core.library.CoreItemFactory;
 import org.openhab.core.library.types.DecimalType;
+import org.openhab.core.library.types.PercentType;
 import org.openhab.core.library.types.QuantityType;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
@@ -46,9 +47,9 @@ import org.openhab.core.types.util.UnitUtils;
 public class NumberItem extends GenericItem {
 
     private static final List<Class<? extends State>> ACCEPTED_DATA_TYPES = List.of(DecimalType.class,
-            QuantityType.class, UnDefType.class);
+            PercentType.class, QuantityType.class, UnDefType.class);
     private static final List<Class<? extends Command>> ACCEPTED_COMMAND_TYPES = List.of(DecimalType.class,
-            QuantityType.class, RefreshType.class);
+            PercentType.class, QuantityType.class, RefreshType.class);
 
     @Nullable
     private Class<? extends Quantity<?>> dimension;
