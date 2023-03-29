@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -53,11 +53,9 @@ public class ScriptParsingException extends ScriptException {
 
     public ScriptParsingException addValidationIssues(Iterable<Issue> validationErrors) {
         for (Issue validationError : validationErrors) {
-            this.getErrors().add(
-                    new ScriptError(validationError.getMessage(), validationError.getLineNumber(), validationError
-                            .getOffset(), validationError.getLength()));
+            this.getErrors().add(new ScriptError(validationError.getMessage(), validationError.getLineNumber(),
+                    validationError.getOffset(), validationError.getLength()));
         }
         return this;
     }
-
 }

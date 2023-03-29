@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,11 +12,15 @@
  */
 package org.openhab.core.thing.type;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
+
 /**
  * Kind of the channel.
  *
  * @author Moritz Kammerer - Initial contribution
  */
+@NonNullByDefault
 public enum ChannelKind {
     /**
      * Channels which have a state.
@@ -34,7 +38,7 @@ public enum ChannelKind {
      * @return the parsed ChannelKind.
      * @throws IllegalArgumentException if the input couldn't be parsed.
      */
-    public static ChannelKind parse(String input) {
+    public static ChannelKind parse(@Nullable String input) {
         if (input == null) {
             return STATE;
         }

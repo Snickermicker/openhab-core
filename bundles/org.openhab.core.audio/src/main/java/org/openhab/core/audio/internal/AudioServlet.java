@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -15,15 +15,19 @@ package org.openhab.core.audio.internal;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collections;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import javax.servlet.Servlet;
 import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -34,49 +38,58 @@ import org.openhab.core.audio.AudioFormat;
 import org.openhab.core.audio.AudioHTTPServer;
 import org.openhab.core.audio.AudioStream;
 import org.openhab.core.audio.FixedLengthAudioStream;
-import org.openhab.core.io.http.servlet.OpenHABServlet;
-import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
-import org.osgi.service.component.annotations.Reference;
-import org.osgi.service.http.HttpContext;
-import org.osgi.service.http.HttpService;
+import org.osgi.service.http.whiteboard.propertytypes.HttpWhiteboardServletName;
+import org.osgi.service.http.whiteboard.propertytypes.HttpWhiteboardServletPattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A servlet that serves audio streams via HTTP.
  *
  * @author Kai Kreuzer - Initial contribution
  */
+@Component(service = { AudioHTTPServer.class, Servlet.class })
+@HttpWhiteboardServletName(AudioServlet.SERVLET_PATH)
+@HttpWhiteboardServletPattern(AudioServlet.SERVLET_PATH + "/*")
 @NonNullByDefault
-@Component
-public class AudioServlet extends OpenHABServlet implements AudioHTTPServer {
+public class AudioServlet extends HttpServlet implements AudioHTTPServer {
 
     private static final long serialVersionUID = -3364664035854567854L;
 
-    private static final String SERVLET_NAME = "/audio";
+    private static final List<String> WAV_MIME_TYPES = List.of("audio/wav", "audio/x-wav", "audio/vnd.wave");
+
+    static final String SERVLET_PATH = "/audio";
+
+    private final Logger logger = LoggerFactory.getLogger(AudioServlet.class);
 
     private final Map<String, AudioStream> oneTimeStreams = new ConcurrentHashMap<>();
     private final Map<String, FixedLengthAudioStream> multiTimeStreams = new ConcurrentHashMap<>();
 
     private final Map<String, Long> streamTimeouts = new ConcurrentHashMap<>();
 
-    @Activate
-    public AudioServlet(final @Reference HttpService httpService, final @Reference HttpContext httpContext) {
-        super(httpService, httpContext);
-    }
-
-    @Activate
-    protected void activate() {
-        super.activate(SERVLET_NAME);
-    }
-
     @Deactivate
-    protected void deactivate() {
-        super.deactivate(SERVLET_NAME);
+    protected synchronized void deactivate() {
+        multiTimeStreams.values().forEach(this::tryClose);
+        multiTimeStreams.clear();
+        streamTimeouts.clear();
+
+        oneTimeStreams.values().forEach(this::tryClose);
+        oneTimeStreams.clear();
     }
 
-    private @Nullable InputStream prepareInputStream(final String streamId, final HttpServletResponse resp)
-            throws AudioException {
+    private void tryClose(@Nullable AudioStream stream) {
+        if (stream != null) {
+            try {
+                stream.close();
+            } catch (IOException ignored) {
+            }
+        }
+    }
+
+    private @Nullable InputStream prepareInputStream(final String streamId, final HttpServletResponse resp,
+            List<String> acceptedMimeTypes) throws AudioException {
         final AudioStream stream;
         final boolean multiAccess;
         if (oneTimeStreams.containsKey(streamId)) {
@@ -96,7 +109,7 @@ public class AudioServlet extends OpenHABServlet implements AudioHTTPServer {
         if (AudioFormat.CODEC_MP3.equals(stream.getFormat().getCodec())) {
             mimeType = "audio/mpeg";
         } else if (AudioFormat.CONTAINER_WAVE.equals(stream.getFormat().getContainer())) {
-            mimeType = "audio/wav";
+            mimeType = WAV_MIME_TYPES.stream().filter(acceptedMimeTypes::contains).findFirst().orElse("audio/wav");
         } else if (AudioFormat.CONTAINER_OGG.equals(stream.getFormat().getContainer())) {
             mimeType = "audio/ogg";
         } else {
@@ -108,8 +121,8 @@ public class AudioServlet extends OpenHABServlet implements AudioHTTPServer {
 
         // try to set the content-length, if possible
         if (stream instanceof FixedLengthAudioStream) {
-            final Long size = ((FixedLengthAudioStream) stream).length();
-            resp.setContentLength(size.intValue());
+            final long size = ((FixedLengthAudioStream) stream).length();
+            resp.setContentLength((int) size);
         }
 
         if (multiAccess) {
@@ -143,7 +156,10 @@ public class AudioServlet extends OpenHABServlet implements AudioHTTPServer {
 
         final String streamId = substringBefore(substringAfterLast(requestURI, "/"), ".");
 
-        try (final InputStream stream = prepareInputStream(streamId, resp)) {
+        List<String> acceptedMimeTypes = Stream.of(Objects.requireNonNullElse(req.getHeader("Accept"), "").split(","))
+                .map(String::trim).collect(Collectors.toList());
+
+        try (final InputStream stream = prepareInputStream(streamId, resp, acceptedMimeTypes)) {
             if (stream == null) {
                 logger.debug("Received request for invalid stream id at {}", requestURI);
                 resp.sendError(HttpServletResponse.SC_NOT_FOUND);
@@ -158,20 +174,15 @@ public class AudioServlet extends OpenHABServlet implements AudioHTTPServer {
 
     private synchronized void removeTimedOutStreams() {
         // Build list of expired streams.
-        final List<String> toRemove = new LinkedList<>();
-        for (Entry<String, Long> entry : streamTimeouts.entrySet()) {
-            if (entry.getValue() < System.nanoTime()) {
-                toRemove.add(entry.getKey());
-            }
-        }
+        long now = System.nanoTime();
+        final List<String> toRemove = streamTimeouts.entrySet().stream().filter(e -> e.getValue() < now)
+                .map(Entry::getKey).collect(Collectors.toList());
+
         toRemove.forEach(streamId -> {
             // the stream has expired, we need to remove it!
             final FixedLengthAudioStream stream = multiTimeStreams.remove(streamId);
             streamTimeouts.remove(streamId);
-            try {
-                stream.close();
-            } catch (IOException e) {
-            }
+            tryClose(stream);
             logger.debug("Removed timed out stream {}", streamId);
         });
     }
@@ -195,7 +206,11 @@ public class AudioServlet extends OpenHABServlet implements AudioHTTPServer {
         return Collections.unmodifiableMap(multiTimeStreams);
     }
 
+    Map<String, AudioStream> getOneTimeStreams() {
+        return Collections.unmodifiableMap(oneTimeStreams);
+    }
+
     private String getRelativeURL(String streamId) {
-        return SERVLET_NAME + "/" + streamId;
+        return SERVLET_PATH + "/" + streamId;
     }
 }

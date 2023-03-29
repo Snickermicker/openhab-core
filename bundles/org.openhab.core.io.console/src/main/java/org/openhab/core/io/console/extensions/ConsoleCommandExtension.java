@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -15,7 +15,9 @@ package org.openhab.core.io.console.extensions;
 import java.util.List;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.io.console.Console;
+import org.openhab.core.io.console.ConsoleCommandCompleter;
 
 /**
  * Client which provide a console command have to implement this interface
@@ -53,4 +55,14 @@ public interface ConsoleCommandExtension {
      * @return the help texts for this extension
      */
     List<String> getUsages();
+
+    /**
+     * This method allows a {@link ConsoleCommandExtension} to provide an object to enable
+     * tab-completion functionality for the user.
+     * 
+     * @return a {@link ConsoleCommandCompleter} object for this command
+     */
+    default @Nullable ConsoleCommandCompleter getCompleter() {
+        return null;
+    }
 }

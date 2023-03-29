@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -16,6 +16,7 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.stream.StreamSupport;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.hamcrest.Description;
 import org.openhab.core.io.transport.modbus.ModbusWriteCoilRequestBlueprint;
 import org.openhab.core.io.transport.modbus.ModbusWriteFunctionCode;
@@ -23,6 +24,7 @@ import org.openhab.core.io.transport.modbus.ModbusWriteFunctionCode;
 /**
  * @author Sami Salonen - Initial contribution
  */
+@NonNullByDefault
 class CoilMatcher extends AbstractRequestComparer<ModbusWriteCoilRequestBlueprint> {
 
     private Boolean[] expectedCoils;
@@ -34,7 +36,7 @@ class CoilMatcher extends AbstractRequestComparer<ModbusWriteCoilRequestBlueprin
     }
 
     @Override
-    public void describeTo(Description description) {
+    public void describeTo(@NonNullByDefault({}) Description description) {
         super.describeTo(description);
         description.appendText(" coils=");
         description.appendValue(Arrays.toString(expectedCoils));

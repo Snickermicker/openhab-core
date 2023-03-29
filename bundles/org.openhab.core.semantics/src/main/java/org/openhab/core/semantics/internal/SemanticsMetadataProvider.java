@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -122,6 +122,12 @@ public class SemanticsMetadataProvider extends AbstractProvider<Metadata>
             Metadata removedMd = semantics.remove(item.getName());
             if (removedMd != null) {
                 notifyListenersAboutRemovedElement(removedMd);
+            }
+        }
+
+        if (item instanceof GroupItem) {
+            for (Item memberItem : ((GroupItem) item).getMembers()) {
+                processItem(memberItem);
             }
         }
     }
@@ -251,6 +257,12 @@ public class SemanticsMetadataProvider extends AbstractProvider<Metadata>
         Metadata removedMd = semantics.remove(item.getName());
         if (removedMd != null) {
             notifyListenersAboutRemovedElement(removedMd);
+
+            if (item instanceof GroupItem) {
+                for (Item memberItem : ((GroupItem) item).getMembers()) {
+                    processItem(memberItem);
+                }
+            }
         }
     }
 

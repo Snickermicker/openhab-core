@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,19 +12,19 @@
  */
 package org.openhab.core.config.dispatch.internal;
 
-import static java.nio.file.StandardWatchEventKinds.*;
-
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.WatchEvent;
-import java.nio.file.WatchEvent.Kind;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.core.OpenHAB;
-import org.openhab.core.service.AbstractWatchService;
+import org.openhab.core.service.WatchService;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Watches file-system events and passes them to our {@link ConfigDispatcher}
@@ -33,69 +33,53 @@ import org.osgi.service.component.annotations.Reference;
  * @author Stefan Triller - factored out this code from {@link ConfigDispatcher}
  */
 @Component(immediate = true)
-public class ConfigDispatcherFileWatcher extends AbstractWatchService {
-
-    /** The program argument name for setting the service config directory path */
+@NonNullByDefault
+public class ConfigDispatcherFileWatcher implements WatchService.WatchEventListener {
     public static final String SERVICEDIR_PROG_ARGUMENT = "openhab.servicedir";
 
     /** The default folder name of the configuration folder of services */
     public static final String SERVICES_FOLDER = "services";
+    private final Logger logger = LoggerFactory.getLogger(ConfigDispatcherFileWatcher.class);
 
     private final ConfigDispatcher configDispatcher;
+    private final WatchService watchService;
 
     @Activate
-    public ConfigDispatcherFileWatcher(final @Reference ConfigDispatcher configDispatcher) {
-        super(getPathToWatch());
+    public ConfigDispatcherFileWatcher(final @Reference ConfigDispatcher configDispatcher,
+            final @Reference(target = WatchService.CONFIG_WATCHER_FILTER) WatchService watchService) {
         this.configDispatcher = configDispatcher;
-    }
 
-    private static String getPathToWatch() {
-        String progArg = System.getProperty(SERVICEDIR_PROG_ARGUMENT);
-        if (progArg != null) {
-            return OpenHAB.getConfigFolder() + File.separator + progArg;
-        } else {
-            return OpenHAB.getConfigFolder() + File.separator + SERVICES_FOLDER;
-        }
-    }
+        String servicesFolder = System.getProperty(SERVICEDIR_PROG_ARGUMENT, SERVICES_FOLDER);
 
-    @Activate
-    @Override
-    public void activate() {
-        super.activate();
-        configDispatcher.processConfigFile(getSourcePath().toFile());
+        this.watchService = watchService;
+
+        watchService.registerListener(this, Path.of(servicesFolder), false);
+        configDispatcher.processConfigFile(Path.of(OpenHAB.getConfigFolder(), servicesFolder).toFile());
     }
 
     @Deactivate
-    @Override
     public void deactivate() {
-        super.deactivate();
+        watchService.unregisterListener(this);
     }
 
     @Override
-    protected boolean watchSubDirectories() {
-        return false;
-    }
-
-    @Override
-    protected Kind<?>[] getWatchEventKinds(Path subDir) {
-        return new Kind<?>[] { ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY };
-    }
-
-    @Override
-    protected void processWatchEvent(WatchEvent<?> event, Kind<?> kind, Path path) {
-        if (kind == ENTRY_CREATE || kind == ENTRY_MODIFY) {
-            File f = path.toFile();
-            if (!f.isHidden() && f.getName().endsWith(".cfg")) {
-                configDispatcher.processConfigFile(f);
+    public void processWatchEvent(WatchService.Kind kind, Path path) {
+        Path fullPath = watchService.getWatchPath().resolve(SERVICES_FOLDER).resolve(path);
+        try {
+            if (kind == WatchService.Kind.CREATE || kind == WatchService.Kind.MODIFY) {
+                if (!Files.isHidden(fullPath) && fullPath.toString().endsWith(".cfg")) {
+                    configDispatcher.processConfigFile(fullPath.toFile());
+                }
+            } else if (kind == WatchService.Kind.DELETE) {
+                // Detect if a service specific configuration file was removed. We want to
+                // notify the service in this case with an updated empty configuration.
+                if (Files.isHidden(fullPath) || Files.isDirectory(fullPath) || !fullPath.toString().endsWith(".cfg")) {
+                    return;
+                }
+                configDispatcher.fileRemoved(fullPath.toString());
             }
-        } else if (kind == ENTRY_DELETE) {
-            // Detect if a service specific configuration file was removed. We want to
-            // notify the service in this case with an updated empty configuration.
-            File configFile = path.toFile();
-            if (configFile.isHidden() || configFile.isDirectory() || !configFile.getName().endsWith(".cfg")) {
-                return;
-            }
-            configDispatcher.fileRemoved(configFile.getAbsolutePath());
+        } catch (IOException e) {
+            logger.error("Failed to process watch event {} for {}", kind, path, e);
         }
     }
 }

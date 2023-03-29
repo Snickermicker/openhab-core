@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -19,6 +19,7 @@ import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
 import java.net.URI;
 import java.util.List;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.Test;
 import org.openhab.core.config.core.ConfigDescription;
 import org.openhab.core.config.core.ConfigDescriptionBuilder;
@@ -31,6 +32,7 @@ import org.openhab.core.config.core.dto.ConfigDescriptionParameterDTO;
 /**
  * @author Christoph Weitkamp - Initial contribution
  */
+@NonNullByDefault
 public class EnrichedConfigDescriptionDTOMapperTest {
 
     private static final URI CONFIG_URI = URI.create("system:ephemeris");

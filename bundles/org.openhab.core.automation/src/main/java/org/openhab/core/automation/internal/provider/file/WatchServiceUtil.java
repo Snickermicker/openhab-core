@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -13,8 +13,12 @@
 package org.openhab.core.automation.internal.provider.file;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.openhab.core.service.WatchService;
 
 /**
  * This class isolates the java 1.7 functionality which tracks the file system changes.
@@ -22,11 +26,13 @@ import java.util.Map;
  * @author Ana Dimova - Initial contribution
  */
 @SuppressWarnings("rawtypes")
+@NonNullByDefault
 public class WatchServiceUtil {
 
     private static final Map<AbstractFileProvider, Map<String, AutomationWatchService>> WATCH_SERVICES = new HashMap<>();
 
-    public static void initializeWatchService(String watchingDir, AbstractFileProvider provider) {
+    public static void initializeWatchService(String watchingDir, AbstractFileProvider provider,
+            WatchService watchService) {
         AutomationWatchService aws = null;
         synchronized (WATCH_SERVICES) {
             Map<String, AutomationWatchService> watchers = WATCH_SERVICES.get(provider);
@@ -35,7 +41,7 @@ public class WatchServiceUtil {
                 WATCH_SERVICES.put(provider, watchers);
             }
             if (watchers.get(watchingDir) == null) {
-                aws = new AutomationWatchService(provider, watchingDir);
+                aws = new AutomationWatchService(provider, watchService, watchingDir);
                 watchers.put(watchingDir, aws);
             }
         }
@@ -46,17 +52,20 @@ public class WatchServiceUtil {
     }
 
     public static void deactivateWatchService(String watchingDir, AbstractFileProvider provider) {
-        AutomationWatchService aws;
+        AutomationWatchService aws = null;
         synchronized (WATCH_SERVICES) {
             Map<String, AutomationWatchService> watchers = WATCH_SERVICES.get(provider);
-            aws = watchers.remove(watchingDir);
-            if (watchers.isEmpty()) {
-                WATCH_SERVICES.remove(provider);
+            if (watchers != null) {
+                aws = watchers.remove(watchingDir);
+                if (watchers.isEmpty()) {
+                    WATCH_SERVICES.remove(provider);
+                }
             }
         }
         if (aws != null) {
             aws.deactivate();
-            provider.removeResources(aws.getSourcePath().toFile());
+            Path sourcePath = aws.getSourcePath();
+            provider.removeResources(sourcePath.toFile());
         }
     }
 }

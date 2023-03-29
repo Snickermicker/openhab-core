@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -293,14 +293,14 @@ public class ItemRegistryImpl extends AbstractRegistry<Item, String, ItemProvide
     }
 
     @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC)
-    protected void setUnitProvider(UnitProvider unitProvider) {
+    public void setUnitProvider(UnitProvider unitProvider) {
         this.unitProvider = unitProvider;
         for (Item item : getItems()) {
             ((GenericItem) item).setUnitProvider(unitProvider);
         }
     }
 
-    protected void unsetUnitProvider(UnitProvider unitProvider) {
+    public void unsetUnitProvider(UnitProvider unitProvider) {
         this.unitProvider = null;
         for (Item item : getItems()) {
             ((GenericItem) item).setUnitProvider(null);
@@ -370,8 +370,8 @@ public class ItemRegistryImpl extends AbstractRegistry<Item, String, ItemProvide
     @Override
     public @Nullable Item remove(String itemName, boolean recursive) {
         return ((ManagedItemProvider) getManagedProvider()
-                .orElseThrow(() -> new IllegalStateException("ManagedProvider is not available"))).remove(itemName,
-                        recursive);
+                .orElseThrow(() -> new IllegalStateException("ManagedProvider is not available")))
+                .remove(itemName, recursive);
     }
 
     @Override
@@ -455,7 +455,7 @@ public class ItemRegistryImpl extends AbstractRegistry<Item, String, ItemProvide
     }
 
     @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC)
-    protected void setStateDescriptionService(StateDescriptionService stateDescriptionService) {
+    public void setStateDescriptionService(StateDescriptionService stateDescriptionService) {
         this.stateDescriptionService = stateDescriptionService;
 
         for (Item item : getItems()) {
@@ -463,7 +463,7 @@ public class ItemRegistryImpl extends AbstractRegistry<Item, String, ItemProvide
         }
     }
 
-    protected void unsetStateDescriptionService(StateDescriptionService stateDescriptionService) {
+    public void unsetStateDescriptionService(StateDescriptionService stateDescriptionService) {
         this.stateDescriptionService = null;
 
         for (Item item : getItems()) {

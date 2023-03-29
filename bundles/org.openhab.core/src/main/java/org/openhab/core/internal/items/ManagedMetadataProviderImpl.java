@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -11,6 +11,11 @@
  * SPDX-License-Identifier: EPL-2.0
  */
 package org.openhab.core.internal.items;
+
+import java.math.BigDecimal;
+import java.util.Collection;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -75,5 +80,37 @@ public class ManagedMetadataProviderImpl extends AbstractManagedProvider<Metadat
     public void removeItemMetadata(String name) {
         logger.debug("Removing all metadata for item {}", name);
         getAll().stream().filter(MetadataPredicates.ofItem(name)).map(Metadata::getUID).forEach(this::remove);
+    }
+
+    @Override
+    public Collection<Metadata> getAll() {
+        return super.getAll().stream().map(this::normalizeMetadata).collect(Collectors.toUnmodifiableList());
+    }
+
+    @Override
+    public @Nullable Metadata get(MetadataKey key) {
+        Metadata metadata = super.get(key);
+        if (metadata != null) {
+            return normalizeMetadata(metadata);
+        }
+        return null;
+    }
+
+    private Metadata normalizeMetadata(Metadata metadata) {
+        return new Metadata(metadata.getUID(), metadata.getValue(), metadata.getConfiguration().entrySet().stream()
+                .map(this::normalizeConfigEntry).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+    }
+
+    private Map.Entry<String, Object> normalizeConfigEntry(Map.Entry<String, Object> entry) {
+        Object value = entry.getValue();
+        if (value instanceof Integer) {
+            BigDecimal newValue = new BigDecimal(value.toString());
+            newValue.setScale(0);
+            return Map.entry(entry.getKey(), newValue);
+        } else if (value instanceof Number) {
+            return Map.entry(entry.getKey(), new BigDecimal(value.toString()));
+        }
+
+        return entry;
     }
 }

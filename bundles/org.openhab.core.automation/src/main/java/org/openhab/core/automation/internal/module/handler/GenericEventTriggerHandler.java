@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,27 +12,30 @@
  */
 package org.openhab.core.automation.internal.module.handler;
 
-import java.util.Dictionary;
 import java.util.HashMap;
-import java.util.Hashtable;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.core.automation.ModuleHandlerCallback;
 import org.openhab.core.automation.Trigger;
 import org.openhab.core.automation.handler.BaseTriggerModuleHandler;
 import org.openhab.core.automation.handler.TriggerHandlerCallback;
 import org.openhab.core.events.Event;
 import org.openhab.core.events.EventFilter;
 import org.openhab.core.events.EventSubscriber;
+import org.openhab.core.events.TopicGlobEventFilter;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceRegistration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * This is an ModuleHandler implementation for Triggers which trigger the rule
+ * This is a ModuleHandler implementation for Triggers which trigger the rule
  * if an event occurs. The eventType, eventSource and topic can be set with the
- * configuration. It is an generic approach which makes it easier to specify
+ * configuration. It is a generic approach which makes it easier to specify
  * more concrete event based triggers with the composite module approach of the
  * automation component. Each GenericTriggerHandler instance registers as
  * EventSubscriber, so the dispose method must be called for unregistering the
@@ -40,39 +43,51 @@ import org.slf4j.LoggerFactory;
  *
  * @author Benedikt Niehues - Initial contribution
  * @author Kai Kreuzer - refactored and simplified customized module handling
+ * @author Cody Cutrer - refactored to match configuration and semantics of GenericConditionTriggerHandler
  */
+@NonNullByDefault
 public class GenericEventTriggerHandler extends BaseTriggerModuleHandler implements EventSubscriber, EventFilter {
 
     public static final String MODULE_TYPE_ID = "core.GenericEventTrigger";
 
-    private static final String CFG_EVENT_TOPIC = "eventTopic";
-    private static final String CFG_EVENT_SOURCE = "eventSource";
-    private static final String CFG_EVENT_TYPES = "eventTypes";
+    public static final String CFG_TOPIC = "topic";
+    public static final String CFG_SOURCE = "source";
+    public static final String CFG_TYPES = "types";
+    public static final String CFG_PAYLOAD = "payload";
 
     private final Logger logger = LoggerFactory.getLogger(GenericEventTriggerHandler.class);
 
     private final String source;
-    private String topic;
+    private final @Nullable TopicGlobEventFilter topicFilter;
     private final Set<String> types;
-    private final BundleContext bundleContext;
+    private final @Nullable Pattern payloadPattern;
 
-    private ServiceRegistration<?> eventSubscriberRegistration;
+    private @Nullable ServiceRegistration<?> eventSubscriberRegistration;
 
     public GenericEventTriggerHandler(Trigger module, BundleContext bundleContext) {
         super(module);
-        this.source = (String) module.getConfiguration().get(CFG_EVENT_SOURCE);
-        this.topic = (String) module.getConfiguration().get(CFG_EVENT_TOPIC);
-        if (module.getConfiguration().get(CFG_EVENT_TYPES) != null) {
-            this.types = Set.of(((String) module.getConfiguration().get(CFG_EVENT_TYPES)).split(","));
+        this.source = (String) module.getConfiguration().get(CFG_SOURCE);
+        String topic = (String) module.getConfiguration().get(CFG_TOPIC);
+        if (!topic.isBlank()) {
+            topicFilter = new TopicGlobEventFilter(topic);
+        } else {
+            topicFilter = null;
+        }
+        if (module.getConfiguration().get(CFG_TYPES) != null) {
+            this.types = Set.of(((String) module.getConfiguration().get(CFG_TYPES)).split(","));
         } else {
             this.types = Set.of();
         }
-        this.bundleContext = bundleContext;
-        Dictionary<String, Object> properties = new Hashtable<>();
-        properties.put("event.topics", topic);
-        eventSubscriberRegistration = this.bundleContext.registerService(EventSubscriber.class.getName(), this,
-                properties);
-        logger.trace("Registered EventSubscriber: Topic: {} Type: {} Source: {}", topic, types, source);
+        String payload = (String) module.getConfiguration().get(CFG_PAYLOAD);
+        if (!payload.isBlank()) {
+            payloadPattern = Pattern.compile(payload);
+        } else {
+            payloadPattern = null;
+        }
+
+        eventSubscriberRegistration = bundleContext.registerService(EventSubscriber.class.getName(), this, null);
+        logger.trace("Registered EventSubscriber: Topic: {} Type: {} Source: {} Payload: {}", topic, types, source,
+                payload);
     }
 
     @Override
@@ -81,12 +96,13 @@ public class GenericEventTriggerHandler extends BaseTriggerModuleHandler impleme
     }
 
     @Override
-    public EventFilter getEventFilter() {
+    public @Nullable EventFilter getEventFilter() {
         return this;
     }
 
     @Override
     public void receive(Event event) {
+        ModuleHandlerCallback callback = this.callback;
         if (callback != null) {
             logger.trace("Received Event: Source: {} Topic: {} Type: {}  Payload: {}", event.getSource(),
                     event.getTopic(), event.getType(), event.getPayload());
@@ -98,21 +114,6 @@ public class GenericEventTriggerHandler extends BaseTriggerModuleHandler impleme
 
             ((TriggerHandlerCallback) callback).triggered(this.module, values);
         }
-    }
-
-    /**
-     * @return the topic
-     */
-    public String getTopic() {
-        return topic;
-    }
-
-    /**
-     * @param topic
-     *            the topic to set
-     */
-    public void setTopic(String topic) {
-        this.topic = topic;
     }
 
     /**
@@ -129,7 +130,20 @@ public class GenericEventTriggerHandler extends BaseTriggerModuleHandler impleme
 
     @Override
     public boolean apply(Event event) {
-        logger.trace("->FILTER: {}:{}", event.getTopic(), source);
-        return event.getTopic().contains(source);
+        logger.trace("->FILTER: {}: {}", event.getTopic(), source);
+
+        TopicGlobEventFilter localTopicFilter = topicFilter;
+        if (localTopicFilter != null && !topicFilter.apply(event)) {
+            return false;
+        }
+        if (!source.isEmpty() && !source.equals(event.getSource())) {
+            return false;
+        }
+        Pattern localPayloadPattern = payloadPattern;
+        if (localPayloadPattern != null && !localPayloadPattern.matcher(event.getPayload()).find()) {
+            return false;
+        }
+
+        return true;
     }
 }

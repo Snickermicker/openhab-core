@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -14,22 +14,37 @@ package org.openhab.core.internal.i18n;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.when;
 import static org.openhab.core.internal.i18n.I18nProviderImpl.*;
 
 import java.time.ZoneId;
+import java.util.Collection;
 import java.util.Dictionary;
 import java.util.Hashtable;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Stream;
 
+import javax.measure.Quantity;
+import javax.measure.Unit;
+import javax.measure.spi.SystemOfUnits;
+
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.openhab.core.library.types.PointType;
+import org.openhab.core.library.unit.ImperialUnits;
+import org.openhab.core.library.unit.SIUnits;
+import org.openhab.core.library.unit.Units;
+import org.openhab.core.types.util.UnitUtils;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.service.component.ComponentContext;
@@ -40,6 +55,7 @@ import org.osgi.service.component.ComponentContext;
  * @author Stefan Triller - Initial contribution
  */
 @ExtendWith(MockitoExtension.class)
+@NonNullByDefault
 public class I18nProviderImplTest {
 
     private static final String LOCATION_ZERO = "0,0";
@@ -60,21 +76,21 @@ public class I18nProviderImplTest {
 
     private static final String TIMEZONE_GMT9 = "Etc/GMT-9";
 
-    private I18nProviderImpl i18nProviderImpl;
+    private @NonNullByDefault({}) I18nProviderImpl i18nProviderImpl;
     private Dictionary<String, Object> initialConfig = new Hashtable<>();
 
-    private @Mock ComponentContext componentContext;
-    private @Mock BundleContext bundleContext;
-    private @Mock Bundle bundle;
+    private @Mock @NonNullByDefault({}) ComponentContext componentContextMock;
+    private @Mock @NonNullByDefault({}) BundleContext bundleContextMock;
+    private @Mock @NonNullByDefault({}) Bundle bundleMock;
 
     @BeforeEach
     public void setup() {
         initialConfig = buildInitialConfig();
-        when(componentContext.getProperties()).thenReturn(initialConfig);
-        when(componentContext.getBundleContext()).thenReturn(bundleContext);
-        when(bundleContext.getBundles()).thenReturn(new Bundle[] { bundle });
+        when(componentContextMock.getProperties()).thenReturn(initialConfig);
+        when(componentContextMock.getBundleContext()).thenReturn(bundleContextMock);
+        when(bundleContextMock.getBundles()).thenReturn(new Bundle[] { bundleMock });
 
-        i18nProviderImpl = new I18nProviderImpl(componentContext);
+        i18nProviderImpl = new I18nProviderImpl(componentContextMock);
     }
 
     @SuppressWarnings("unchecked")
@@ -154,6 +170,34 @@ public class I18nProviderImplTest {
         assertThat(setLocale.getScript(), is(SCRIPT_RU));
         assertThat(setLocale.getCountry(), is(REGION_RU));
         assertThat(setLocale.getVariant(), is(VARIANT_RU));
+    }
+
+    @ParameterizedTest
+    @MethodSource("getAllDimensions")
+    @SuppressWarnings("unchecked")
+    public <T extends Quantity<T>> void assertThatUnitProviderIsComplete(String dimensionName) {
+        Class<? extends Quantity<?>> dimension = UnitUtils.parseDimension(dimensionName);
+        assertThat(dimension, is(notNullValue()));
+
+        Unit<?> defaultUnit = i18nProviderImpl.getUnit((Class<T>) dimension);
+        assertThat(dimensionName + " has no default unit", defaultUnit, notNullValue());
+    }
+
+    private static Stream<String> getAllDimensions() {
+        return Stream.of(SIUnits.getInstance(), Units.getInstance(), ImperialUnits.getInstance())
+                .map(SystemOfUnits::getUnits).flatMap(Collection::stream) //
+                .map(UnitUtils::getDimensionName).filter(Objects::nonNull).map(Objects::requireNonNull).distinct();
+    }
+
+    @Test
+    public void testFormattingTexts() {
+        String defaultText = "formatString {0} {1,number}";
+        String successResult = i18nProviderImpl.getText(bundleMock, "testKey", defaultText, null, false, 1);
+        assertThat(successResult, is("formatString false 1"));
+
+        // make sure bugs are properly handled
+        String failedResult = i18nProviderImpl.getText(bundleMock, "testKey", defaultText, null, false, "foo");
+        assertThat(failedResult, is(defaultText));
     }
 
     private Dictionary<String, Object> buildInitialConfig() {

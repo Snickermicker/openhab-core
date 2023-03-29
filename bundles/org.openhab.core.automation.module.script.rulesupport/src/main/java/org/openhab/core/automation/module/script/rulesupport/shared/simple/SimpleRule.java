@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -35,7 +35,7 @@ import org.openhab.core.config.core.ConfigDescriptionParameter;
 import org.openhab.core.config.core.Configuration;
 
 /**
- * convenience Rule class with an action handler. This allows to define Rules which have a execution block.
+ * convenience Rule class with an action handler. This allows to define Rules which have an execution block.
  *
  * @author Simon Merschjohann - Initial contribution
  * @author Kai Kreuzer - made it implement Rule

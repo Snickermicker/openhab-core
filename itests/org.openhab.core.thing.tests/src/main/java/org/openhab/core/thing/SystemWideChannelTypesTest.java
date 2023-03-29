@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -36,7 +36,7 @@ import org.openhab.core.types.StateOption;
 @NonNullByDefault
 public class SystemWideChannelTypesTest extends JavaOSGiTest {
 
-    private static final int NUMBER_OF_SYSTEM_WIDE_CHANNEL_TYPES = 24;
+    private static final int NUMBER_OF_SYSTEM_WIDE_CHANNEL_TYPES = 29;
 
     private @NonNullByDefault({}) ChannelTypeProvider systemChannelTypeProvider;
 
@@ -74,8 +74,13 @@ public class SystemWideChannelTypesTest extends JavaOSGiTest {
         assertNotNull(systemChannelTypeProvider.getChannelType(SYSTEM_CHANNEL_TYPE_UID_WIND_DIRECTION, null));
         assertNotNull(systemChannelTypeProvider.getChannelType(SYSTEM_CHANNEL_TYPE_UID_WIND_SPEED, null));
         assertNotNull(systemChannelTypeProvider.getChannelType(SYSTEM_CHANNEL_TYPE_UID_OUTDOOR_TEMPERATURE, null));
+        assertNotNull(systemChannelTypeProvider.getChannelType(SYSTEM_CHANNEL_TYPE_UID_INDOOR_TEMPERATURE, null));
         assertNotNull(systemChannelTypeProvider.getChannelType(SYSTEM_CHANNEL_TYPE_UID_ATMOSPHERIC_HUMIDITY, null));
         assertNotNull(systemChannelTypeProvider.getChannelType(SYSTEM_CHANNEL_TYPE_UID_BAROMETRIC_PRESSURE, null));
+        assertNotNull(systemChannelTypeProvider.getChannelType(SYSTEM_CHANNEL_TYPE_UID_ELECTRIC_POWER, null));
+        assertNotNull(systemChannelTypeProvider.getChannelType(SYSTEM_CHANNEL_TYPE_UID_ELECTRIC_CURRENT, null));
+        assertNotNull(systemChannelTypeProvider.getChannelType(SYSTEM_CHANNEL_TYPE_UID_ELECTRIC_VOLTAGE, null));
+        assertNotNull(systemChannelTypeProvider.getChannelType(SYSTEM_CHANNEL_TYPE_UID_ELECTRICAL_ENERGY, null));
     }
 
     @Test
@@ -87,7 +92,7 @@ public class SystemWideChannelTypesTest extends JavaOSGiTest {
                 .getChannelType(SYSTEM_CHANNEL_TYPE_UID_SIGNAL_STRENGTH, Locale.GERMAN);
         assertNotNull(signalStrengthChannelType);
         assertEquals("Signalstärke", signalStrengthChannelType.getLabel());
-        assertNull(signalStrengthChannelType.getDescription());
+        assertNotNull(signalStrengthChannelType.getDescription());
 
         StateDescription stateDescription = signalStrengthChannelType.getState();
         if (stateDescription != null) {
@@ -120,13 +125,13 @@ public class SystemWideChannelTypesTest extends JavaOSGiTest {
                 .getChannelType(SYSTEM_CHANNEL_TYPE_UID_LOW_BATTERY, Locale.GERMAN);
         assertNotNull(lowBatteryChannelType);
         assertEquals("Niedriger Batteriestatus", lowBatteryChannelType.getLabel());
-        assertNull(lowBatteryChannelType.getDescription());
+        assertNotNull(lowBatteryChannelType.getDescription());
 
         ChannelType batteryLevelChannelType = systemChannelTypeProvider
                 .getChannelType(SYSTEM_CHANNEL_TYPE_UID_BATTERY_LEVEL, Locale.GERMAN);
         assertNotNull(batteryLevelChannelType);
         assertEquals("Batterieladung", batteryLevelChannelType.getLabel());
-        assertNull(batteryLevelChannelType.getDescription());
+        assertNotNull(batteryLevelChannelType.getDescription());
 
         ChannelType powerChannelType = systemChannelTypeProvider.getChannelType(SYSTEM_CHANNEL_TYPE_UID_POWER,
                 Locale.GERMAN);

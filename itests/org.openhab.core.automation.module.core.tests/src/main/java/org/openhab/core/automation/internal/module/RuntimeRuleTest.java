@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -13,7 +13,6 @@
 package org.openhab.core.automation.internal.module;
 
 import static java.util.Map.entry;
-import static org.eclipse.jdt.annotation.Checks.requireNonNull;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.Collection;
@@ -21,6 +20,7 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
@@ -45,7 +45,6 @@ import org.openhab.core.automation.util.RuleBuilder;
 import org.openhab.core.common.registry.ProviderChangeListener;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.events.Event;
-import org.openhab.core.events.EventFilter;
 import org.openhab.core.events.EventPublisher;
 import org.openhab.core.events.EventSubscriber;
 import org.openhab.core.items.Item;
@@ -101,7 +100,7 @@ public class RuntimeRuleTest extends JavaOSGiTest {
         registerService(volatileStorageService);
 
         // start rule engine
-        RuleEngineImpl ruleEngine = requireNonNull((RuleEngineImpl) getService(RuleManager.class));
+        RuleEngineImpl ruleEngine = Objects.requireNonNull((RuleEngineImpl) getService(RuleManager.class));
         ruleEngine.onReadyMarkerAdded(new ReadyMarker("", ""));
         waitForAssert(() -> assertTrue(ruleEngine.isStarted()));
     }
@@ -117,11 +116,6 @@ public class RuntimeRuleTest extends JavaOSGiTest {
             @Override
             public Set<String> getSubscribedEventTypes() {
                 return Set.of(eventType);
-            }
-
-            @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
             }
         };
 
@@ -148,8 +142,8 @@ public class RuntimeRuleTest extends JavaOSGiTest {
 
     @Test
     public void itemStateUpdatedBySimpleRule() throws ItemNotFoundException, InterruptedException {
-        final Configuration triggerConfig = new Configuration(Map.ofEntries(entry("eventSource", "myMotionItem2"),
-                entry("eventTopic", "openhab/*"), entry("eventTypes", "ItemStateEvent")));
+        final Configuration triggerConfig = new Configuration(
+                Map.ofEntries(entry("topic", "openhab/items/myMotionItem2/*"), entry("types", "ItemStateEvent")));
         final Configuration actionConfig = new Configuration(
                 Map.ofEntries(entry("itemName", "myLampItem2"), entry("command", "ON")));
         final Rule rule = RuleBuilder.create("myRule21" + new Random().nextInt())

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -48,7 +48,7 @@ public class DiscoveryServiceMock extends AbstractDiscoveryService {
     @Override
     public void startScan() {
         if (faulty) {
-            throw new RuntimeException();
+            throw new IllegalStateException();
         }
         thingDiscovered(DiscoveryResultBuilder.create(new ThingUID(thingType, "test" + new Random().nextInt(999999999)))
                 .withTTL(DEFAULT_TTL).build());

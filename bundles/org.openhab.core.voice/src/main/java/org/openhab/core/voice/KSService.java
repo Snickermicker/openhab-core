@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -67,7 +67,7 @@ public interface KSService {
      * fired {@link KSEvent} events targeting the passed {@link KSListener}.
      *
      * The passed {@link AudioStream} must be of a supported {@link AudioFormat}.
-     * In other words a {@link AudioFormat} compatible with one returned from
+     * In other words an {@link AudioFormat} compatible with one returned from
      * the {@code getSupportedFormats()} method.
      *
      * The passed {@code Locale} must be supported. That is to say it must be

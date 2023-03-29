@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,6 +12,8 @@
  */
 package org.openhab.core.automation.events;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.automation.dto.RuleDTO;
 
 /**
@@ -19,6 +21,7 @@ import org.openhab.core.automation.dto.RuleDTO;
  *
  * @author Benedikt Niehues - Initial contribution
  */
+@NonNullByDefault
 public class RuleRemovedEvent extends AbstractRuleRegistryEvent {
 
     public static final String TYPE = RuleRemovedEvent.class.getSimpleName();
@@ -31,7 +34,7 @@ public class RuleRemovedEvent extends AbstractRuleRegistryEvent {
      * @param source the source of the event
      * @param rule the rule for which this event is
      */
-    public RuleRemovedEvent(String topic, String payload, String source, RuleDTO rule) {
+    public RuleRemovedEvent(String topic, String payload, @Nullable String source, RuleDTO rule) {
         super(topic, payload, source, rule);
     }
 

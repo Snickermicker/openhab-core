@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -45,7 +45,7 @@ public class Semantics {
     }
 
     /**
-     * Checks if the given {@link Item} is a {@link Equipment}.
+     * Checks if the given {@link Item} is an {@link Equipment}.
      *
      * @param item the Item to check
      * @return return true, if the given Item is an Equipment, false otherwise
@@ -74,24 +74,18 @@ public class Semantics {
      */
     @ActionDoc(text = "gets the Location Item of the Item")
     public static @Nullable Item getLocation(Item item) {
-        if (isLocation(item)) {
-            // if item is a location, return itself
-            return item;
-        } else {
-            // if item is not a location, iterate its groups and try to determine a location from them
-            return SemanticsActionService.getLocationItemFromGroupNames(item.getGroupNames());
-        }
+        return SemanticsActionService.getLocationItemFromGroupNames(item.getGroupNames());
     }
 
     /**
      * Gets the related {@link Location} type of an {@link Item}.
-     *
+     * 
      * @param item the Item to determine the Location for
      * @return the related Location type of the Item or null
      */
     @ActionDoc(text = "gets the Location type of the Item")
     public static @Nullable Class<? extends Location> getLocationType(Item item) {
-        Item locationItem = getLocation(item);
+        Item locationItem = isLocation(item) ? item : getLocation(item);
         return locationItem != null ? SemanticTags.getLocation(locationItem) : null;
     }
 
@@ -103,13 +97,7 @@ public class Semantics {
      */
     @ActionDoc(text = "gets the Equipment Item an Item belongs to")
     public static @Nullable Item getEquipment(Item item) {
-        if (isEquipment(item)) {
-            // if item is an equipment return its semantics equipment class
-            return item;
-        } else {
-            // if item is not an equipment, iterate its groups and try to determine a equipment there
-            return SemanticsActionService.getEquipmentItemFromGroupNames(item.getGroupNames());
-        }
+        return SemanticsActionService.getEquipmentItemFromGroupNames(item.getGroupNames());
     }
 
     /**
@@ -120,9 +108,8 @@ public class Semantics {
      */
     @ActionDoc(text = "gets the Equipment type an Item belongs to")
     public static @Nullable Class<? extends Equipment> getEquipmentType(Item item) {
-        Item equipmentItem = getEquipment(item);
+        Item equipmentItem = isEquipment(item) ? item : getEquipment(item);
         return equipmentItem != null ? SemanticTags.getEquipment(equipmentItem) : null;
-
     }
 
     /**

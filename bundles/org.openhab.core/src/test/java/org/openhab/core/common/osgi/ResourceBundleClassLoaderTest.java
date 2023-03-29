@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -24,12 +24,14 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.Test;
 import org.osgi.framework.Bundle;
 
 /**
  * @author Simon Kaufmann - Initial contribution
  */
+@NonNullByDefault
 public class ResourceBundleClassLoaderTest {
 
     static URL createTmpTestPropetiesFile(Path root, String relativeFile) throws Exception {

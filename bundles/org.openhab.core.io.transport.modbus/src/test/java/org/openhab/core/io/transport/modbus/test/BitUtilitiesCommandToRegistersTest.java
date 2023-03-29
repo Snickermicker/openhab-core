@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -55,11 +55,11 @@ public class BitUtilitiesCommandToRegistersTest {
         for (int i = 0; i < ints.length; i++) {
             int possiblyUnsigned = ints[i];
             if (possiblyUnsigned > UINT16_MAX) {
-                throw new RuntimeException(
+                throw new IllegalArgumentException(
                         "One of the register values, " + possiblyUnsigned + ", is too large (max " + UINT16_MAX + ")");
             } else if (possiblyUnsigned < Short.MIN_VALUE) {
-                throw new RuntimeException("One of the register values, " + possiblyUnsigned + ", is too small (min "
-                        + Short.MIN_VALUE + "), would truncate to \" + low16Signed");
+                throw new IllegalArgumentException("One of the register values, " + possiblyUnsigned
+                        + ", is too small (min " + Short.MIN_VALUE + "), would truncate to \" + low16Signed");
             }
             short low16Signed = (short) possiblyUnsigned;
             shorts[i] = low16Signed;
@@ -121,7 +121,7 @@ public class BitUtilitiesCommandToRegistersTest {
             } else if (obj instanceof Stream) {
                 ((Stream<?>) obj).forEach(builder::add);
             } else {
-                throw new RuntimeException("Illegal parameter " + obj.toString());
+                throw new IllegalArgumentException("Illegal parameter " + obj.toString());
             }
         }
         return builder.build();

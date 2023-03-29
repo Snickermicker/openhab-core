@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -17,7 +17,7 @@ import java.time.ZonedDateTime;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 
 /**
- * {@link ConditionHandler} that evaluates, if the current time satisfies an specified condition.
+ * {@link ConditionHandler} that evaluates, if the current time satisfies a specified condition.
  *
  * @author Sönke Küper - Initial contribution
  */

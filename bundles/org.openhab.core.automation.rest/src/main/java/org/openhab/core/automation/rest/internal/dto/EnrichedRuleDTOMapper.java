@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,6 +12,7 @@
  */
 package org.openhab.core.automation.rest.internal.dto;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.core.automation.ManagedRuleProvider;
 import org.openhab.core.automation.Rule;
 import org.openhab.core.automation.RuleManager;
@@ -23,6 +24,7 @@ import org.openhab.core.automation.dto.RuleDTOMapper;
  * @author Markus Rathgeb - Initial contribution
  * @author Kai Kreuzer - added editable field
  */
+@NonNullByDefault
 public class EnrichedRuleDTOMapper extends RuleDTOMapper {
 
     public static EnrichedRuleDTO map(final Rule rule, final RuleManager ruleEngine,

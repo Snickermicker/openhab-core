@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -28,7 +28,7 @@ import org.openhab.core.voice.text.HumanLanguageInterpreter;
 public class HLIMapper {
 
     /**
-     * Maps a {@link HumanLanguageInterpreter} to an {@link HumanLanguageInterpreterDTO}.
+     * Maps a {@link HumanLanguageInterpreter} to a {@link HumanLanguageInterpreterDTO}.
      *
      * @param hli the human language interpreter
      * @param locale the locale to use for the DTO

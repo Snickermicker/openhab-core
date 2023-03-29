@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,6 +12,8 @@
  */
 package org.openhab.core.automation.events;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.automation.RuleStatusInfo;
 import org.openhab.core.events.AbstractEvent;
 
@@ -21,6 +23,7 @@ import org.openhab.core.events.AbstractEvent;
  * @author Benedikt Niehues - Initial contribution
  * @author Kai Kreuzer - added toString method
  */
+@NonNullByDefault
 public class RuleStatusInfoEvent extends AbstractEvent {
 
     public static final String TYPE = RuleStatusInfoEvent.class.getSimpleName();
@@ -37,7 +40,8 @@ public class RuleStatusInfoEvent extends AbstractEvent {
      * @param statusInfo the status info for this event
      * @param ruleId the rule for which this event is
      */
-    public RuleStatusInfoEvent(String topic, String payload, String source, RuleStatusInfo statusInfo, String ruleId) {
+    public RuleStatusInfoEvent(String topic, String payload, @Nullable String source, RuleStatusInfo statusInfo,
+            String ruleId) {
         super(topic, payload, source);
         this.statusInfo = statusInfo;
         this.ruleId = ruleId;

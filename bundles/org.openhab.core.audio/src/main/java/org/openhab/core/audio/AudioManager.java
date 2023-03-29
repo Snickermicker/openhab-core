@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -113,6 +113,45 @@ public interface AudioManager {
     void stream(@Nullable String url, @Nullable String sinkId) throws AudioException;
 
     /**
+     * Parse and synthesize a melody and play it into the default sink.
+     *
+     * The melody should be a spaced separated list of note names or silences (character 0 or O).
+     * You can optionally add the character "'" to increase the note one octave.
+     * You can optionally add ":ms" where ms is an int value to customize the note/silence milliseconds duration
+     * (defaults to 200ms).
+     *
+     * @param melody The url to stream from or null if streaming should be stopped.
+     */
+    void playMelody(String melody);
+
+    /**
+     * Parse and synthesize a melody and play it into the given sink.
+     *
+     * The melody should be a spaced separated list of note names or silences (character 0 or O).
+     * You can optionally add the character "'" to increase the note one octave.
+     * You can optionally add ":ms" where ms is an int value to customize the note/silence milliseconds duration
+     * (defaults to 200ms).
+     *
+     * @param melody The url to stream from or null if streaming should be stopped.
+     * @param sinkId The id of the audio sink to use or null for the default.
+     */
+    void playMelody(String melody, @Nullable String sinkId);
+
+    /**
+     * Parse and synthesize a melody and play it into the given sink at the desired volume.
+     *
+     * The melody should be a spaced separated list of note names or silences (character 0 or O).
+     * You can optionally add the character "'" to increase the note one octave.
+     * You can optionally add ":ms" where ms is an int value to customize the note/silence milliseconds duration
+     * (defaults to 200ms).
+     *
+     * @param melody The url to stream from or null if streaming should be stopped.
+     * @param sinkId The id of the audio sink to use or null for the default.
+     * @param volume The volume to be used or null if the default notification volume should be used
+     */
+    void playMelody(String melody, @Nullable String sinkId, @Nullable PercentType volume);
+
+    /**
      * Retrieves the current volume of a sink
      *
      * @param sinkId the sink to get the volume for or null for the default
@@ -129,6 +168,12 @@ public interface AudioManager {
      * @throws IOException if the sink is not able to set the volume
      */
     void setVolume(PercentType volume, @Nullable String sinkId) throws IOException;
+
+    /**
+     * Retrieves the default AudioSource id if any.
+     */
+    @Nullable
+    String getSourceId();
 
     /**
      * Retrieves an AudioSource.
@@ -150,6 +195,29 @@ public interface AudioManager {
     Set<AudioSource> getAllSources();
 
     /**
+     * Retrieves the audio sources for a given id
+     *
+     * @param sourceId the id of the audio sources or null for the default
+     * @return the audio sources for the id or the default audio sources
+     */
+    @Nullable
+    AudioSource getSource(@Nullable String sourceId);
+
+    /**
+     * Get a list of source ids that match a given pattern
+     *
+     * @param pattern pattern to search, can include `*` and `?` placeholders
+     * @return ids of matching sources
+     */
+    Set<String> getSourceIds(String pattern);
+
+    /**
+     * Retrieves the default AudioSink id if any.
+     */
+    @Nullable
+    String getSinkId();
+
+    /**
      * Retrieves an AudioSink.
      * If a default name is configured and the service available, this is returned. If no default name is configured,
      * the first available service is returned, if one exists. If no service with the default name is found, null is
@@ -167,14 +235,6 @@ public interface AudioManager {
      * @return all audio sinks
      */
     Set<AudioSink> getAllSinks();
-
-    /**
-     * Get a list of source ids that match a given pattern
-     *
-     * @param pattern pattern to search, can include `*` and `?` placeholders
-     * @return ids of matching sources
-     */
-    Set<String> getSourceIds(String pattern);
 
     /**
      * Retrieves the sink for a given id

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -27,7 +27,7 @@ import org.openhab.core.audio.AudioSource;
 public class AudioMapper {
 
     /**
-     * Maps a {@link AudioSource} to an {@link AudioSourceDTO}.
+     * Maps an {@link AudioSource} to an {@link AudioSourceDTO}.
      *
      * @param source the audio source
      * @param locale the locale to use for the DTO
@@ -39,7 +39,7 @@ public class AudioMapper {
     }
 
     /**
-     * Maps a {@link AudioSink} to an {@link AudioSinkDTO}.
+     * Maps an {@link AudioSink} to an {@link AudioSinkDTO}.
      *
      * @param sink the audio sink
      * @param locale the locale to use for the DTO

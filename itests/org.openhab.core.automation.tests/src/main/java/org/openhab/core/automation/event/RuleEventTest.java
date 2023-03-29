@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -13,7 +13,6 @@
 package org.openhab.core.automation.event;
 
 import static java.util.Map.entry;
-import static org.eclipse.jdt.annotation.Checks.requireNonNull;
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
@@ -22,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -46,7 +46,6 @@ import org.openhab.core.automation.util.RuleBuilder;
 import org.openhab.core.common.registry.ProviderChangeListener;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.events.Event;
-import org.openhab.core.events.EventFilter;
 import org.openhab.core.events.EventPublisher;
 import org.openhab.core.events.EventSubscriber;
 import org.openhab.core.items.Item;
@@ -102,7 +101,7 @@ public class RuleEventTest extends JavaOSGiTest {
         registerVolatileStorageService();
 
         // start rule engine
-        RuleEngineImpl ruleEngine = requireNonNull((RuleEngineImpl) getService(RuleManager.class));
+        RuleEngineImpl ruleEngine = Objects.requireNonNull((RuleEngineImpl) getService(RuleManager.class));
         ruleEngine.onReadyMarkerAdded(new ReadyMarker("", ""));
         waitForAssert(() -> assertTrue(ruleEngine.isStarted()));
     }
@@ -120,11 +119,6 @@ public class RuleEventTest extends JavaOSGiTest {
             }
 
             @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
-            }
-
-            @Override
             public void receive(Event event) {
                 logger.info("RuleEvent: {}", event.getTopic());
                 ruleEvents.add(event);
@@ -133,8 +127,8 @@ public class RuleEventTest extends JavaOSGiTest {
         registerService(ruleEventHandler);
 
         // Creation of RULE
-        Configuration triggerConfig = new Configuration(Map.ofEntries(entry("eventSource", "myMotionItem2"),
-                entry("eventTopic", "openhab/*"), entry("eventTypes", "ItemStateEvent")));
+        Configuration triggerConfig = new Configuration(
+                Map.ofEntries(entry("topic", "openhab/items/myMotionItem2/*"), entry("types", "ItemStateEvent")));
 
         Configuration actionConfig = new Configuration(
                 Map.ofEntries(entry("itemName", "myLampItem2"), entry("command", "ON")));
@@ -180,11 +174,6 @@ public class RuleEventTest extends JavaOSGiTest {
             public Set<String> getSubscribedEventTypes() {
                 return Set.of(ItemCommandEvent.TYPE);
             }
-
-            @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
-            }
         };
         registerService(itemEventHandler);
         eventPublisher.post(ItemEventFactory.createStateEvent("myMotionItem2", OnOffType.ON));
@@ -208,11 +197,6 @@ public class RuleEventTest extends JavaOSGiTest {
             @Override
             public Set<String> getSubscribedEventTypes() {
                 return Set.of(RuleRemovedEvent.TYPE);
-            }
-
-            @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
             }
 
             @Override

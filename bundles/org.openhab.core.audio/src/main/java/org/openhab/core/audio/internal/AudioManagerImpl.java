@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -18,6 +18,7 @@ import static java.util.stream.Collectors.toList;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.text.ParseException;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Locale;
@@ -30,6 +31,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.OpenHAB;
 import org.openhab.core.audio.AudioException;
+import org.openhab.core.audio.AudioFormat;
 import org.openhab.core.audio.AudioManager;
 import org.openhab.core.audio.AudioSink;
 import org.openhab.core.audio.AudioSource;
@@ -38,6 +40,7 @@ import org.openhab.core.audio.FileAudioStream;
 import org.openhab.core.audio.URLAudioStream;
 import org.openhab.core.audio.UnsupportedAudioFormatException;
 import org.openhab.core.audio.UnsupportedAudioStreamException;
+import org.openhab.core.audio.utils.ToneSynthesizer;
 import org.openhab.core.config.core.ConfigOptionProvider;
 import org.openhab.core.config.core.ConfigurableService;
 import org.openhab.core.config.core.ParameterOption;
@@ -120,17 +123,18 @@ public class AudioManagerImpl implements AudioManager, ConfigOptionProvider {
         AudioSink sink = getSink(sinkId);
         if (sink != null) {
             PercentType oldVolume = null;
-            try {
-                // get current volume
-                oldVolume = getVolume(sinkId);
-            } catch (IOException e) {
-                logger.debug("An exception occurred while getting the volume of sink '{}' : {}", sink.getId(),
-                        e.getMessage(), e);
-            }
             // set notification sound volume
             if (volume != null) {
                 try {
-                    setVolume(volume, sinkId);
+                    // get current volume
+                    oldVolume = sink.getVolume();
+                } catch (IOException e) {
+                    logger.debug("An exception occurred while getting the volume of sink '{}' : {}", sink.getId(),
+                            e.getMessage(), e);
+                }
+
+                try {
+                    sink.setVolume(volume);
                 } catch (IOException e) {
                     logger.debug("An exception occurred while setting the volume of sink '{}' : {}", sink.getId(),
                             e.getMessage(), e);
@@ -144,7 +148,7 @@ public class AudioManagerImpl implements AudioManager, ConfigOptionProvider {
                 if (volume != null && oldVolume != null) {
                     // restore volume only if it was set before
                     try {
-                        setVolume(oldVolume, sinkId);
+                        sink.setVolume(oldVolume);
                     } catch (IOException e) {
                         logger.debug("An exception occurred while setting the volume of sink '{}' : {}", sink.getId(),
                                 e.getMessage(), e);
@@ -192,6 +196,37 @@ public class AudioManagerImpl implements AudioManager, ConfigOptionProvider {
     }
 
     @Override
+    public void playMelody(String melody) {
+        playMelody(melody, null);
+    }
+
+    @Override
+    public void playMelody(String melody, @Nullable String sinkId) {
+        playMelody(melody, sinkId, null);
+    }
+
+    @Override
+    public void playMelody(String melody, @Nullable String sinkId, @Nullable PercentType volume) {
+        AudioSink sink = getSink(sinkId);
+        if (sink == null) {
+            logger.warn("Failed playing melody as no audio sink {} was found.", sinkId);
+            return;
+        }
+        var synthesizerFormat = AudioFormat.getBestMatch(ToneSynthesizer.getSupportedFormats(),
+                sink.getSupportedFormats());
+        if (synthesizerFormat == null) {
+            logger.warn("Failed playing melody as sink {} does not support wav.", sinkId);
+            return;
+        }
+        try {
+            var audioStream = new ToneSynthesizer(synthesizerFormat).getStream(ToneSynthesizer.parseMelody(melody));
+            play(audioStream, sinkId, volume);
+        } catch (IOException | ParseException e) {
+            logger.warn("Failed playing melody: {}", e.getMessage());
+        }
+    }
+
+    @Override
     public PercentType getVolume(@Nullable String sinkId) throws IOException {
         AudioSink sink = getSink(sinkId);
 
@@ -208,6 +243,11 @@ public class AudioManagerImpl implements AudioManager, ConfigOptionProvider {
         if (sink != null) {
             sink.setVolume(volume);
         }
+    }
+
+    @Override
+    public @Nullable String getSourceId() {
+        return defaultSource;
     }
 
     @Override
@@ -232,6 +272,30 @@ public class AudioManagerImpl implements AudioManager, ConfigOptionProvider {
     }
 
     @Override
+    public @Nullable AudioSource getSource(@Nullable String sourceId) {
+        return (sourceId == null) ? getSource() : audioSources.get(sourceId);
+    }
+
+    @Override
+    public Set<String> getSourceIds(String pattern) {
+        String regex = pattern.replace("?", ".?").replace("*", ".*?");
+        Set<String> matchedSources = new HashSet<>();
+
+        for (String aSource : audioSources.keySet()) {
+            if (aSource.matches(regex)) {
+                matchedSources.add(aSource);
+            }
+        }
+
+        return matchedSources;
+    }
+
+    @Override
+    public @Nullable String getSinkId() {
+        return defaultSink;
+    }
+
+    @Override
     public @Nullable AudioSink getSink() {
         AudioSink sink = null;
         if (defaultSink != null) {
@@ -250,20 +314,6 @@ public class AudioManagerImpl implements AudioManager, ConfigOptionProvider {
     @Override
     public Set<AudioSink> getAllSinks() {
         return new HashSet<>(audioSinks.values());
-    }
-
-    @Override
-    public Set<String> getSourceIds(String pattern) {
-        String regex = pattern.replace("?", ".?").replace("*", ".*?");
-        Set<String> matchedSources = new HashSet<>();
-
-        for (String aSource : audioSources.keySet()) {
-            if (aSource.matches(regex)) {
-                matchedSources.add(aSource);
-            }
-        }
-
-        return matchedSources;
     }
 
     @Override

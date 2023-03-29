@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,12 +12,15 @@
  */
 package org.openhab.core.config.core.internal.validation;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+
 /**
  * The {@link ConfigDescriptionParameterValidatorFactory} creates the corresponding
  * {@link ConfigDescriptionParameterValidator}s used by ConfigDescriptionValidator.
  *
  * @author Thomas Höfer - Initial contribution
  */
+@NonNullByDefault
 public final class ConfigDescriptionParameterValidatorFactory {
 
     private ConfigDescriptionParameterValidatorFactory() {
@@ -58,5 +61,14 @@ public final class ConfigDescriptionParameterValidatorFactory {
      */
     public static ConfigDescriptionParameterValidator createPatternValidator() {
         return new PatternValidator();
+    }
+
+    /**
+     * Returns a new validator for the parameter options of a config description parameter.
+     *
+     * @return a new validator for the parameter options of a config description parameter
+     */
+    public static ConfigDescriptionParameterValidator createOptionsValidator() {
+        return new OptionsValidator();
     }
 }

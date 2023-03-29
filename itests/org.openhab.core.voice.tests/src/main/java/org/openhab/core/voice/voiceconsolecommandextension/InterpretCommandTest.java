@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.util.Dictionary;
 import java.util.Hashtable;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.openhab.core.voice.internal.HumanLanguageInterpreterStub;
@@ -35,20 +36,22 @@ import org.osgi.service.cm.ConfigurationAdmin;
  *
  * @author Velin Yordanov - Migrated tests from groovy to java
  */
+@NonNullByDefault
 public class InterpretCommandTest extends VoiceConsoleCommandExtensionTest {
     private static final String CONFIG_DEFAULT_HLI = "defaultHLI";
     private static final String CONFIG_DEFAULT_TTS = "defaultTTS";
     private static final String CONFIG_DEFAULT_VOICE = "defaultVoice";
     private static final String SUBCMD_INTERPRET = "interpret";
     private static final String INTERPRETED_TEXT = "Interpreted text";
-    private static final String EXCEPTION_MESSAGE = "Exception message";
+    private static final String EXCEPTION_MESSAGE = "interpretation exception";
 
-    private HumanLanguageInterpreterStub hliStub;
-    private VoiceStub voice;
-    private TTSServiceStub ttsService;
+    private @NonNullByDefault({}) HumanLanguageInterpreterStub hliStub;
+    private @NonNullByDefault({}) VoiceStub voice;
+    private @NonNullByDefault({}) TTSServiceStub ttsService;
 
     @BeforeEach
     public void setUp() throws IOException, InterruptedException {
+        registerVolatileStorageService();
         ttsService = new TTSServiceStub();
         hliStub = new HumanLanguageInterpreterStub();
         voice = new VoiceStub();
@@ -79,7 +82,7 @@ public class InterpretCommandTest extends VoiceConsoleCommandExtensionTest {
     @Test
     public void verifyThatAnInterpretationExceptionIsHandledProperly() {
         waitForAssert(() -> {
-            hliStub.setIsInterpretationExceptionExpected(true);
+            hliStub.setExceptionExpected(true);
             String[] params = new String[] { SUBCMD_INTERPRET, "text", "to", "be", "interpreted" };
             extensionService.execute(params, console);
             assertThat(console.getPrintedText(), is(EXCEPTION_MESSAGE));

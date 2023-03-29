@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.openhab.core.automation.Rule;
@@ -32,9 +33,10 @@ import org.openhab.core.test.java.JavaOSGiTest;
  *
  * @author Victor Toni - Initial contribution
  */
+@NonNullByDefault
 public class RuleRegistryTest extends JavaOSGiTest {
 
-    private RuleRegistry ruleRegistry;
+    private @NonNullByDefault({}) RuleRegistry ruleRegistry;
 
     @BeforeEach
     public void setup() {

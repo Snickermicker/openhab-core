@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -15,7 +15,9 @@ package org.openhab.core.model.script.scoping;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.URLEncoder;
+import java.time.DayOfWeek;
 import java.time.Duration;
+import java.time.Month;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
@@ -34,6 +36,7 @@ import org.openhab.core.model.script.actions.HTTP;
 import org.openhab.core.model.script.actions.Log;
 import org.openhab.core.model.script.actions.Ping;
 import org.openhab.core.model.script.actions.ScriptExecution;
+import org.openhab.core.model.script.actions.Transformation;
 import org.openhab.core.model.script.engine.IActionServiceProvider;
 import org.openhab.core.model.script.engine.IThingActionsProvider;
 import org.openhab.core.model.script.engine.action.ActionService;
@@ -78,6 +81,7 @@ public class ScriptImplicitlyImportedTypes extends ImplicitlyImportedFeatures {
         result.add(HTTP.class);
         result.add(Log.class);
         result.add(Ping.class);
+        result.add(Transformation.class);
         result.add(ScriptExecution.class);
         result.add(URLEncoder.class);
 
@@ -93,6 +97,7 @@ public class ScriptImplicitlyImportedTypes extends ImplicitlyImportedFeatures {
         result.add(HTTP.class);
         result.add(Log.class);
         result.add(Ping.class);
+        result.add(Transformation.class);
         result.add(ScriptExecution.class);
         result.add(URLEncoder.class);
 
@@ -104,7 +109,9 @@ public class ScriptImplicitlyImportedTypes extends ImplicitlyImportedFeatures {
 
         // date time static functions
         result.add(ChronoUnit.class);
+        result.add(DayOfWeek.class);
         result.add(Duration.class);
+        result.add(Month.class);
         result.add(ZoneId.class);
         result.add(ZonedDateTime.class);
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,12 +12,15 @@
  */
 package org.openhab.core.model.core.internal.util;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+
 /**
  * This class provides a few mathematical helper functions that are required by
  * code of this bundle.
  *
  * @author Kai Kreuzer - Initial contribution
  */
+@NonNullByDefault
 public class MathUtils {
 
     /**

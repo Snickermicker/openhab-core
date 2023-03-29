@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -19,11 +19,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.openhab.core.events.Event;
-import org.openhab.core.events.EventFilter;
 import org.openhab.core.events.EventSubscriber;
 import org.openhab.core.test.java.JavaOSGiTest;
 import org.openhab.core.thing.ChannelUID;
@@ -36,14 +36,15 @@ import org.openhab.core.thing.link.events.ItemChannelLinkRemovedEvent;
  * @author Dennis Nobel - Initial contribution
  * @author Wouter Born - Migrate tests from Groovy to Java
  */
+@NonNullByDefault
 public class LinkEventOSGiTest extends JavaOSGiTest {
 
-    private ItemChannelLinkRegistry itemChannelLinkRegistry;
-    private ItemChannelLinkEventSubscriber eventSubscriber;
+    private @NonNullByDefault({}) ItemChannelLinkRegistry itemChannelLinkRegistry;
+    private @NonNullByDefault({}) ItemChannelLinkEventSubscriber eventSubscriber;
 
     class ItemChannelLinkEventSubscriber implements EventSubscriber {
 
-        private Event lastReceivedEvent;
+        private @Nullable Event lastReceivedEvent;
 
         @Override
         public Set<String> getSubscribedEventTypes() {
@@ -52,16 +53,11 @@ public class LinkEventOSGiTest extends JavaOSGiTest {
         }
 
         @Override
-        public @Nullable EventFilter getEventFilter() {
-            return null;
-        }
-
-        @Override
         public void receive(Event event) {
             lastReceivedEvent = event;
         }
 
-        public Event getLastReceivedEvent() {
+        public @Nullable Event getLastReceivedEvent() {
             return lastReceivedEvent;
         }
     }

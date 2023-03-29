@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -91,10 +91,20 @@ public class DefaultSystemChannelTypeProvider implements ChannelTypeProvider {
             "wind-speed");
     public static final ChannelTypeUID SYSTEM_CHANNEL_TYPE_UID_OUTDOOR_TEMPERATURE = new ChannelTypeUID(BINDING_ID,
             "outdoor-temperature");
+    public static final ChannelTypeUID SYSTEM_CHANNEL_TYPE_UID_INDOOR_TEMPERATURE = new ChannelTypeUID(BINDING_ID,
+            "indoor-temperature");
     public static final ChannelTypeUID SYSTEM_CHANNEL_TYPE_UID_ATMOSPHERIC_HUMIDITY = new ChannelTypeUID(BINDING_ID,
             "atmospheric-humidity");
     public static final ChannelTypeUID SYSTEM_CHANNEL_TYPE_UID_BAROMETRIC_PRESSURE = new ChannelTypeUID(BINDING_ID,
             "barometric-pressure");
+    public static final ChannelTypeUID SYSTEM_CHANNEL_TYPE_UID_ELECTRIC_POWER = new ChannelTypeUID(BINDING_ID,
+            "electric-power");
+    public static final ChannelTypeUID SYSTEM_CHANNEL_TYPE_UID_ELECTRIC_CURRENT = new ChannelTypeUID(BINDING_ID,
+            "electric-current");
+    public static final ChannelTypeUID SYSTEM_CHANNEL_TYPE_UID_ELECTRIC_VOLTAGE = new ChannelTypeUID(BINDING_ID,
+            "electric-voltage");
+    public static final ChannelTypeUID SYSTEM_CHANNEL_TYPE_UID_ELECTRICAL_ENERGY = new ChannelTypeUID(BINDING_ID,
+            "electrical-energy");
 
     /**
      * Signal strength default system wide {@link ChannelType}. Represents signal strength of a device as a number
@@ -102,6 +112,7 @@ public class DefaultSystemChannelTypeProvider implements ChannelTypeProvider {
      */
     public static final ChannelType SYSTEM_CHANNEL_SIGNAL_STRENGTH = ChannelTypeBuilder
             .state(SYSTEM_CHANNEL_TYPE_UID_SIGNAL_STRENGTH, "Signal Strength", CoreItemFactory.NUMBER)
+            .withDescription("Signal strength as with values 0 (worst), 1, 2, 3 or 4 (best)")
             .withCategory("QualityOfService")
             .withStateDescriptionFragment(StateDescriptionFragmentBuilder.create().withMinimum(BigDecimal.ZERO)
                     .withMaximum(new BigDecimal(4)).withStep(BigDecimal.ONE).withReadOnly(Boolean.TRUE)
@@ -117,6 +128,7 @@ public class DefaultSystemChannelTypeProvider implements ChannelTypeProvider {
      */
     public static final ChannelType SYSTEM_CHANNEL_LOW_BATTERY = ChannelTypeBuilder
             .state(SYSTEM_CHANNEL_TYPE_UID_LOW_BATTERY, "Low Battery", CoreItemFactory.SWITCH)
+            .withDescription("Low battery warning with possible values on (low battery) and off (battery ok)")
             .withCategory("LowBattery")
             .withStateDescriptionFragment(StateDescriptionFragmentBuilder.create().withReadOnly(true).build())
             .withTags(List.of("LowBattery", "Energy")).build();
@@ -126,7 +138,7 @@ public class DefaultSystemChannelTypeProvider implements ChannelTypeProvider {
      */
     public static final ChannelType SYSTEM_CHANNEL_BATTERY_LEVEL = ChannelTypeBuilder
             .state(SYSTEM_CHANNEL_TYPE_UID_BATTERY_LEVEL, "Battery Level", CoreItemFactory.NUMBER)
-            .withCategory("Battery")
+            .withDescription("Battery level as a percentage (0-100%)").withCategory("Battery")
             .withStateDescriptionFragment(StateDescriptionFragmentBuilder.create().withMinimum(BigDecimal.ZERO)
                     .withMaximum(new BigDecimal(100)).withStep(BigDecimal.ONE).withReadOnly(true).withPattern("%.0f %%")
                     .build())
@@ -229,7 +241,7 @@ public class DefaultSystemChannelTypeProvider implements ChannelTypeProvider {
      * Color-temperature: default system wide {@link ChannelType} which allows changing the color temperature in Kelvin
      */
     public static final ChannelType SYSTEM_COLOR_TEMPERATURE_ABS = ChannelTypeBuilder
-            .state(SYSTEM_CHANNEL_TYPE_UID_COLOR_TEMPERATURE_ABS, "Color Temperature", CoreItemFactory.NUMBER)
+            .state(SYSTEM_CHANNEL_TYPE_UID_COLOR_TEMPERATURE_ABS, "Color Temperature", "Number:Temperature")
             .withDescription("Controls the color temperature of the light in Kelvin").withCategory("ColorLight")
             .isAdvanced(true)
             .withStateDescriptionFragment(StateDescriptionFragmentBuilder.create().withMinimum(new BigDecimal(1000))
@@ -314,6 +326,16 @@ public class DefaultSystemChannelTypeProvider implements ChannelTypeProvider {
             .withTags(List.of("Measurement", "Temperature")).build();
 
     /**
+     * Indoor-temperature: system wide {@link ChannelType} which shows the indoor temperature
+     */
+    public static final ChannelType SYSTEM_INDOOR_TEMPERATURE = ChannelTypeBuilder
+            .state(SYSTEM_CHANNEL_TYPE_UID_INDOOR_TEMPERATURE, "Indoor Temperature", "Number:Temperature")
+            .withDescription("Current indoor temperature").withCategory("Temperature")
+            .withStateDescriptionFragment(
+                    StateDescriptionFragmentBuilder.create().withReadOnly(true).withPattern("%.1f %unit%").build())
+            .withTags(List.of("Measurement", "Temperature")).build();
+
+    /**
      * Atmospheric-humidity: system wide {@link ChannelType} which shows the atmospheric humidity
      */
     public static final ChannelType SYSTEM_ATMOSPHERIC_HUMIDITY = ChannelTypeBuilder
@@ -333,12 +355,56 @@ public class DefaultSystemChannelTypeProvider implements ChannelTypeProvider {
                     StateDescriptionFragmentBuilder.create().withReadOnly(true).withPattern("%.3f %unit%").build())
             .withTags(List.of("Measurement", "Pressure")).build();
 
+    // Energy
+
+    /**
+     * Electric-power: system wide {@link ChannelType} which shows the electric power
+     */
+    public static final ChannelType SYSTEM_ELECTRIC_POWER = ChannelTypeBuilder
+            .state(SYSTEM_CHANNEL_TYPE_UID_ELECTRIC_POWER, "Electric Power", "Number:Power")
+            .withDescription("Current electric power").withCategory("Energy")
+            .withStateDescriptionFragment(
+                    StateDescriptionFragmentBuilder.create().withReadOnly(true).withPattern("%.1f %unit%").build())
+            .withTags(List.of("Measurement", "Power")).build();
+
+    /**
+     * Electric-current: system wide {@link ChannelType} which shows the electric current
+     */
+    public static final ChannelType SYSTEM_ELECTRIC_CURRENT = ChannelTypeBuilder
+            .state(SYSTEM_CHANNEL_TYPE_UID_ELECTRIC_CURRENT, "Electric Current", "Number:ElectricCurrent")
+            .withDescription("Current electric current").withCategory("Energy")
+            .withStateDescriptionFragment(
+                    StateDescriptionFragmentBuilder.create().withReadOnly(true).withPattern("%.1f %unit%").build())
+            .withTags(List.of("Measurement", "Current")).build();
+
+    /**
+     * Electric-voltage: system wide {@link ChannelType} which shows the electric voltage
+     */
+    public static final ChannelType SYSTEM_ELECTRIC_VOLTAGE = ChannelTypeBuilder
+            .state(SYSTEM_CHANNEL_TYPE_UID_ELECTRIC_VOLTAGE, "Electric Voltage", "Number:ElectricPotential")
+            .withDescription("Current electric voltage").withCategory("Energy")
+            .withStateDescriptionFragment(
+                    StateDescriptionFragmentBuilder.create().withReadOnly(true).withPattern("%.1f %unit%").build())
+            .withTags(List.of("Measurement", "Voltage")).build();
+
+    /**
+     * Electrical-energy: system wide {@link ChannelType} which shows the electrical energy
+     */
+    public static final ChannelType SYSTEM_ELECTRICAL_ENERGY = ChannelTypeBuilder
+            .state(SYSTEM_CHANNEL_TYPE_UID_ELECTRICAL_ENERGY, "Electrical Energy", "Number:Energy")
+            .withDescription("Current electrical energy").withCategory("Energy")
+            .withStateDescriptionFragment(
+                    StateDescriptionFragmentBuilder.create().withReadOnly(true).withPattern("%.1f %unit%").build())
+            .withTags(List.of("Measurement", "Energy")).build();
+
     private static final Collection<ChannelType> CHANNEL_TYPES = List.of(SYSTEM_CHANNEL_SIGNAL_STRENGTH,
             SYSTEM_CHANNEL_LOW_BATTERY, SYSTEM_CHANNEL_BATTERY_LEVEL, SYSTEM_TRIGGER, SYSTEM_RAWBUTTON, SYSTEM_BUTTON,
             SYSTEM_RAWROCKER, SYSTEM_POWER, SYSTEM_LOCATION, SYSTEM_MOTION, SYSTEM_BRIGHTNESS, SYSTEM_COLOR,
             SYSTEM_COLOR_TEMPERATURE, SYSTEM_COLOR_TEMPERATURE_ABS, SYSTEM_VOLUME, SYSTEM_MUTE, SYSTEM_MEDIA_CONTROL,
             SYSTEM_MEDIA_TITLE, SYSTEM_MEDIA_ARTIST, SYSTEM_WIND_DIRECTION, SYSTEM_WIND_SPEED,
-            SYSTEM_OUTDOOR_TEMPERATURE, SYSTEM_ATMOSPHERIC_HUMIDITY, SYSTEM_BAROMETRIC_PRESSURE);
+            SYSTEM_OUTDOOR_TEMPERATURE, SYSTEM_INDOOR_TEMPERATURE, SYSTEM_ATMOSPHERIC_HUMIDITY,
+            SYSTEM_BAROMETRIC_PRESSURE, SYSTEM_ELECTRIC_POWER, SYSTEM_ELECTRIC_CURRENT, SYSTEM_ELECTRIC_VOLTAGE,
+            SYSTEM_ELECTRICAL_ENERGY);
 
     private final Map<LocalizedKey, ChannelType> localizedChannelTypeCache = new ConcurrentHashMap<>();
 
@@ -387,11 +453,7 @@ public class DefaultSystemChannelTypeProvider implements ChannelTypeProvider {
 
         ChannelType localizedChannelType = channelTypeI18nLocalizationService.createLocalizedChannelType(bundle,
                 channelType, locale);
-        if (localizedChannelType != null) {
-            localizedChannelTypeCache.put(localizedKey, localizedChannelType);
-            return localizedChannelType;
-        } else {
-            return channelType;
-        }
+        localizedChannelTypeCache.put(localizedKey, localizedChannelType);
+        return localizedChannelType;
     }
 }

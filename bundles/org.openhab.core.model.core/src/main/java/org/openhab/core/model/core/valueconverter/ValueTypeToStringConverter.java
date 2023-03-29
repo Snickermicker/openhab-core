@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -14,6 +14,8 @@ package org.openhab.core.model.core.valueconverter;
 
 import java.math.BigDecimal;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.xtext.conversion.IValueConverter;
 import org.eclipse.xtext.conversion.ValueConverterException;
 import org.eclipse.xtext.nodemodel.INode;
@@ -25,10 +27,11 @@ import org.eclipse.xtext.util.Strings;
  *
  * @author Alex Tugarev - Initial contribution
  */
-public class ValueTypeToStringConverter implements IValueConverter<Object> {
+@NonNullByDefault
+public class ValueTypeToStringConverter implements IValueConverter<@Nullable Object> {
 
     @Override
-    public Object toValue(String string, INode node) throws ValueConverterException {
+    public @Nullable Object toValue(@Nullable String string, @Nullable INode node) throws ValueConverterException {
         if (string == null) {
             return null;
         }
@@ -50,7 +53,7 @@ public class ValueTypeToStringConverter implements IValueConverter<Object> {
     }
 
     @Override
-    public String toString(Object value) throws ValueConverterException {
+    public String toString(@Nullable Object value) throws ValueConverterException {
         if (value == null) {
             throw new ValueConverterException("Value may not be null.", null, null);
         }

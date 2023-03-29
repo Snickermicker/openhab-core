@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,10 +49,9 @@ import org.openhab.core.thing.type.ChannelTypeUID;
  * @author Stefan Triller - Initial contribution
  */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.WARN)
+@MockitoSettings(strictness = Strictness.LENIENT)
+@NonNullByDefault
 public class ProfileTypeResourceTest extends JavaTest {
-
-    private ProfileTypeResource resource;
 
     // UIDs for state profile types
     private final ProfileTypeUID stateProfileTypeUID1 = new ProfileTypeUID("my:stateProfile1");
@@ -76,13 +76,15 @@ public class ProfileTypeResourceTest extends JavaTest {
     private final ChannelType otherTriggerChannelType = ChannelTypeBuilder
             .trigger(otherTriggerChannelTypeUID, "channel1").build();
 
-    private @Mock ChannelTypeRegistry channelTypeRegistry;
-    private @Mock LocaleService localeService;
-    private @Mock ProfileTypeRegistry profileTypeRegistry;
+    private @NonNullByDefault({}) ProfileTypeResource resource;
+
+    private @Mock @NonNullByDefault({}) ChannelTypeRegistry channelTypeRegistryMock;
+    private @Mock @NonNullByDefault({}) LocaleService localeServiceMock;
+    private @Mock @NonNullByDefault({}) ProfileTypeRegistry profileTypeRegistryMock;
 
     @BeforeEach
     public void beforeEach() {
-        resource = new ProfileTypeResource(channelTypeRegistry, localeService, profileTypeRegistry);
+        resource = new ProfileTypeResource(channelTypeRegistryMock, localeServiceMock, profileTypeRegistryMock);
 
         List<ProfileType> profileTypes = new ArrayList<>();
         ProfileType pt1 = ProfileTypeBuilder.newState(stateProfileTypeUID1, "profile1")
@@ -98,12 +100,13 @@ public class ProfileTypeResourceTest extends JavaTest {
         profileTypes.add(pt3);
         profileTypes.add(pt4);
 
-        when(profileTypeRegistry.getProfileTypes(any())).thenReturn(profileTypes);
-        when(channelTypeRegistry.getChannelType(pt1ChannelType1UID, null)).thenReturn(pt1ChannelType1);
-        when(channelTypeRegistry.getChannelType(pt3ChannelType1UID, null)).thenReturn(pt3ChannelType1);
+        when(profileTypeRegistryMock.getProfileTypes(any())).thenReturn(profileTypes);
+        when(channelTypeRegistryMock.getChannelType(pt1ChannelType1UID, null)).thenReturn(pt1ChannelType1);
+        when(channelTypeRegistryMock.getChannelType(pt3ChannelType1UID, null)).thenReturn(pt3ChannelType1);
 
-        when(channelTypeRegistry.getChannelType(otherStateChannelTypeUID, null)).thenReturn(otherStateChannelType);
-        when(channelTypeRegistry.getChannelType(otherTriggerChannelTypeUID, null)).thenReturn(otherTriggerChannelType);
+        when(channelTypeRegistryMock.getChannelType(otherStateChannelTypeUID, null)).thenReturn(otherStateChannelType);
+        when(channelTypeRegistryMock.getChannelType(otherTriggerChannelTypeUID, null))
+                .thenReturn(otherTriggerChannelType);
     }
 
     @Test

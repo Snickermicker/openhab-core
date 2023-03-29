@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -14,10 +14,13 @@ package org.openhab.core.library.dimension;
 
 import javax.measure.Quantity;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+
 /**
  * Define Volumetric Flow Rate type (basic unit is m^3/s).
  *
  * @author Łukasz Dywicki - Initial contribution
  */
+@NonNullByDefault
 public interface VolumetricFlowRate extends Quantity<VolumetricFlowRate> {
 }

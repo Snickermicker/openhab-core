@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -14,6 +14,7 @@ package org.openhab.core.voice.voiceconsolecommandextension;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.BeforeEach;
 import org.openhab.core.audio.AudioManager;
 import org.openhab.core.io.console.extensions.ConsoleCommandExtension;
@@ -32,16 +33,18 @@ import org.openhab.core.voice.internal.VoiceManagerImpl;
  * @author Mihaela Memova - Initial contribution
  * @author Velin Yordanov - migrated tests from groovy to java
  */
+@NonNullByDefault
 public abstract class VoiceConsoleCommandExtensionTest extends JavaOSGiTest {
-    protected VoiceManagerImpl voiceManager;
-    protected VoiceConsoleCommandExtension extensionService;
-    protected AudioManager audioManager;
-    protected ConsoleStub console;
-    protected SinkStub sink;
-    protected AudioSourceStub source;
+    protected @NonNullByDefault({}) VoiceManagerImpl voiceManager;
+    protected @NonNullByDefault({}) VoiceConsoleCommandExtension extensionService;
+    protected @NonNullByDefault({}) AudioManager audioManager;
+    protected @NonNullByDefault({}) ConsoleStub console;
+    protected @NonNullByDefault({}) SinkStub sink;
+    protected @NonNullByDefault({}) AudioSourceStub source;
 
     @BeforeEach
     public void setup() {
+        registerVolatileStorageService();
         voiceManager = getService(VoiceManager.class, VoiceManagerImpl.class);
         assertNotNull(voiceManager);
         audioManager = getService(AudioManager.class, AudioManager.class);

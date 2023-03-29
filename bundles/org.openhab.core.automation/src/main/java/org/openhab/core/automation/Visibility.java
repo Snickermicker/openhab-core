@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,6 +12,7 @@
  */
 package org.openhab.core.automation;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.core.automation.template.Template;
 import org.openhab.core.automation.type.ModuleType;
 
@@ -20,6 +21,7 @@ import org.openhab.core.automation.type.ModuleType;
  *
  * @author Yordan Mihaylov - Initial contribution
  */
+@NonNullByDefault
 public enum Visibility {
     /**
      * The UI has always to show an object with such visibility.

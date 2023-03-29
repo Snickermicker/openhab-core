@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -15,6 +15,7 @@ package org.openhab.core.magic.binding.internal.automation.modules;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.core.automation.AnnotatedActions;
 import org.openhab.core.automation.annotation.ActionInput;
 import org.openhab.core.automation.annotation.ActionOutput;
@@ -35,13 +36,14 @@ import org.slf4j.LoggerFactory;
  *
  * @author Stefan Triller - Initial contribution
  */
+@NonNullByDefault
 @Component(immediate = true, configurationPolicy = ConfigurationPolicy.REQUIRE, configurationPid = "org.openhab.magicmultiaction")
 @ActionScope(name = "binding.magic")
 public class MagicMultiServiceMultiActions implements AnnotatedActions {
 
     private final Logger logger = LoggerFactory.getLogger(MagicMultiServiceMultiActions.class);
 
-    protected Map<String, Object> config;
+    protected Map<String, Object> config = Map.of();
 
     @Activate
     protected void activate(Map<String, Object> config) {

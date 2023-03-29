@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -26,12 +26,10 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.eclipse.jdt.annotation.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.openhab.core.events.Event;
-import org.openhab.core.events.EventFilter;
 import org.openhab.core.events.EventSubscriber;
 import org.openhab.core.library.CoreItemFactory;
 import org.openhab.core.model.core.ModelRepository;
@@ -50,12 +48,13 @@ import org.openhab.core.thing.type.ChannelTypeUID;
 /**
  * @author Henning Treu - Initial contribution
  */
+@NonNullByDefault
 public class GenericThingProviderTest extends JavaOSGiTest {
 
     private static final String TESTMODEL_NAME = "testModel.things";
 
-    private ModelRepository modelRepository;
-    private ThingRegistry thingRegistry;
+    private @NonNullByDefault({}) ModelRepository modelRepository;
+    private @NonNullByDefault({}) ThingRegistry thingRegistry;
 
     @BeforeEach
     public void setUp() {
@@ -481,7 +480,6 @@ public class GenericThingProviderTest extends JavaOSGiTest {
     public void assertThatUpdatingAnEmbeddedThingCausesTheRightBehaviorWrtAddingAndUpdatingAndNoRemovedEventsAreSent() {
         List<AbstractThingRegistryEvent> receivedEvents = new ArrayList<>();
 
-        @NonNullByDefault
         EventSubscriber thingEventSubscriber = new EventSubscriber() {
             @Override
             public Set<String> getSubscribedEventTypes() {
@@ -489,13 +487,12 @@ public class GenericThingProviderTest extends JavaOSGiTest {
             }
 
             @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
-            }
-
-            @Override
             public void receive(Event event) {
-                receivedEvents.add((AbstractThingRegistryEvent) event);
+                AbstractThingRegistryEvent registryEvent = (AbstractThingRegistryEvent) event;
+                if (List.of("hue:bridge:my1234Bridge", "hue:LCT001:my1234Bridge:myKitchenBulb1")
+                        .contains(registryEvent.getThing().UID)) {
+                    receivedEvents.add(registryEvent);
+                }
             }
         };
 
@@ -503,8 +500,8 @@ public class GenericThingProviderTest extends JavaOSGiTest {
 
         assertThat(thingRegistry.getAll().size(), is(0));
 
-        String model = "Bridge hue:bridge:myBridge [ ip = \"1.2.3.4\", username = \"123\" ] {" + //
-                "    LCT001 bulb1 [ lightId = \"1\" ] { Switch : notification }" + //
+        String model = "Bridge hue:bridge:my1234Bridge [ ip = \"1.2.3.4\", username = \"123\" ] {" + //
+                "    LCT001 myKitchenBulb1 [ lightId = \"1\" ] { Switch : notification }" + //
                 "}";
 
         modelRepository.addOrRefreshModel(TESTMODEL_NAME, new ByteArrayInputStream(model.getBytes()));
@@ -515,8 +512,8 @@ public class GenericThingProviderTest extends JavaOSGiTest {
         });
         receivedEvents.clear();
 
-        String newModel = "Bridge hue:bridge:myBridge [ ip = \"1.2.3.4\", username = \"123\" ]  {" + //
-                "    LCT001 bulb1 [ lightId = \"2\" ] { Switch : notification }" + //
+        String newModel = "Bridge hue:bridge:my1234Bridge [ ip = \"1.2.3.4\", username = \"123\" ]  {" + //
+                "    LCT001 myKitchenBulb1 [ lightId = \"2\" ] { Switch : notification }" + //
                 "}";
 
         modelRepository.addOrRefreshModel(TESTMODEL_NAME, new ByteArrayInputStream(newModel.getBytes()));
@@ -527,7 +524,7 @@ public class GenericThingProviderTest extends JavaOSGiTest {
             Event event = receivedEvents.get(0);
             assertEquals(ThingUpdatedEvent.class, event.getClass());
             ThingUpdatedEvent thingUpdatedEvent = (ThingUpdatedEvent) event;
-            assertEquals("hue:LCT001:myBridge:bulb1", thingUpdatedEvent.getThing().UID.toString());
+            assertEquals("hue:LCT001:my1234Bridge:myKitchenBulb1", thingUpdatedEvent.getThing().UID);
         });
     }
 

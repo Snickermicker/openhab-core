@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -18,6 +18,7 @@ import java.util.Map;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.automation.module.script.ScriptEngineFactory;
+import org.openhab.core.automation.module.script.ScriptExtensionAccessor;
 import org.openhab.core.model.script.engine.ScriptEngine;
 import org.openhab.core.model.script.runtime.DSLScriptContextProvider;
 import org.osgi.service.component.annotations.Activate;
@@ -38,13 +39,16 @@ public class DSLScriptEngineFactory implements ScriptEngineFactory {
     private static final String SCRIPT_TYPE = "dsl";
 
     private final ScriptEngine scriptEngine;
+    private final ScriptExtensionAccessor scriptExtensionAccessor;
 
     @Reference(cardinality = ReferenceCardinality.OPTIONAL, policyOption = ReferencePolicyOption.GREEDY)
     protected @Nullable DSLScriptContextProvider contextProvider;
 
     @Activate
-    public DSLScriptEngineFactory(@Reference ScriptEngine scriptEngine) {
+    public DSLScriptEngineFactory(@Reference ScriptEngine scriptEngine,
+            @Reference ScriptExtensionAccessor scriptExtensionAccessor) {
         this.scriptEngine = scriptEngine;
+        this.scriptExtensionAccessor = scriptExtensionAccessor;
     }
 
     @Override
@@ -58,7 +62,6 @@ public class DSLScriptEngineFactory implements ScriptEngineFactory {
 
     @Override
     public javax.script.@Nullable ScriptEngine createScriptEngine(String scriptType) {
-        return new DSLScriptEngine(scriptEngine, contextProvider);
+        return new DSLScriptEngine(scriptEngine, contextProvider, scriptExtensionAccessor);
     }
-
 }

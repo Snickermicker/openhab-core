@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -18,15 +18,16 @@ import static org.openhab.core.config.core.ConfigDescriptionParameter.Type.*;
 
 import java.math.BigDecimal;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.Test;
 
 /**
  * @author Simon Kaufmann - Initial contribution
  */
+@NonNullByDefault
 public class ConfigUtilTest {
 
     private final URI configUri = URI.create("system:ephemeris");
@@ -172,11 +173,11 @@ public class ConfigUtilTest {
     }
 
     @Test
-    public void firstDesciptionWinsForNormalization() throws URISyntaxException {
-        ConfigDescription configDescriptionInteger = ConfigDescriptionBuilder.create(new URI("thing:fooThing"))
+    public void firstDesciptionWinsForNormalization() {
+        ConfigDescription configDescriptionInteger = ConfigDescriptionBuilder.create(URI.create("thing:fooThing"))
                 .withParameter(ConfigDescriptionParameterBuilder.create("foo", INTEGER).build()).build();
 
-        ConfigDescription configDescriptionString = ConfigDescriptionBuilder.create(new URI("thingType:fooThing"))
+        ConfigDescription configDescriptionString = ConfigDescriptionBuilder.create(URI.create("thingType:fooThing"))
                 .withParameter(ConfigDescriptionParameterBuilder.create("foo", TEXT).build()).build();
 
         assertThat(ConfigUtil.normalizeTypes(Map.of("foo", "1"), List.of(configDescriptionInteger)).get("foo"),

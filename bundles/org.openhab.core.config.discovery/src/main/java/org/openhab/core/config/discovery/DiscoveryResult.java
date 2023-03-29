@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,6 +12,7 @@
  */
 package org.openhab.core.config.discovery;
 
+import java.util.List;
 import java.util.Map;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -51,7 +52,7 @@ public interface DiscoveryResult {
      *
      * @return the Thing ID
      */
-    public ThingUID getThingUID();
+    ThingUID getThingUID();
 
     /**
      * Returns the unique {@code Thing} type ID of this result object.
@@ -61,7 +62,7 @@ public interface DiscoveryResult {
      *
      * @return the unique Thing type
      */
-    public ThingTypeUID getThingTypeUID();
+    ThingTypeUID getThingTypeUID();
 
     /**
      * Returns the binding ID of this result object.
@@ -70,7 +71,7 @@ public interface DiscoveryResult {
      *
      * @return the binding ID
      */
-    public String getBindingId();
+    String getBindingId();
 
     /**
      * Returns the properties of this result object.<br>
@@ -80,19 +81,20 @@ public interface DiscoveryResult {
      *
      * @return the properties (could be empty)
      */
-    public Map<String, Object> getProperties();
+    Map<String, Object> getProperties();
 
     /**
      * Returns the representation property of this result object.
      * <p>
-     * The representation property represents an unique human and/or machine readable identifier of the thing that was
+     * The representation property represents a unique human and/or machine readable identifier of the thing that was
      * discovered. Its actual value can be retrieved from the {@link DiscoveryResult#getProperties()} map. Such unique
      * identifiers are typically the <code>ipAddress</code>, the <code>macAddress</code> or the
      * <code>serialNumber</code> of the discovered thing.
      *
      * @return the representation property
      */
-    public @Nullable String getRepresentationProperty();
+    @Nullable
+    String getRepresentationProperty();
 
     /**
      * Returns the flag of this result object.<br>
@@ -103,33 +105,44 @@ public interface DiscoveryResult {
      *
      * @return the flag
      */
-    public DiscoveryResultFlag getFlag();
+    DiscoveryResultFlag getFlag();
 
     /**
      * Returns the human readable label for this result object.
      *
      * @return the human readable label (could be empty)
      */
-    public String getLabel();
+    String getLabel();
 
     /**
      * Returns the unique {@link Bridge} ID of this result object.
      *
      * @return the unique Bridge ID
      */
-    public @Nullable ThingUID getBridgeUID();
+    @Nullable
+    ThingUID getBridgeUID();
 
     /**
      * Returns the timestamp of this result object.
      *
      * @return timestamp as long
      */
-    public long getTimestamp();
+    long getTimestamp();
 
     /**
      * Returns the time to live in seconds for this entry.
      *
      * @return time to live in seconds
      */
-    public long getTimeToLive();
+    long getTimeToLive();
+
+    /**
+     * Normalizes non-configuration properties by converting them to a String.
+     * Properties in the list passed to this method remain unchanged.
+     *
+     * @param configurationParameters a {@link List} containing the names of configuration parameters
+     */
+    default void normalizePropertiesOnConfigDescription(List<String> configurationParameters) {
+        // do nothing - optional
+    }
 }

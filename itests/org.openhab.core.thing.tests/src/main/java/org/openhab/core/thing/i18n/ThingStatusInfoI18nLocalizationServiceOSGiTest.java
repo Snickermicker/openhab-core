@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -14,12 +14,14 @@ package org.openhab.core.thing.i18n;
 
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import java.io.IOException;
 import java.util.Locale;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,9 +39,13 @@ import org.openhab.core.thing.binding.BaseThingHandler;
 import org.openhab.core.thing.binding.BaseThingHandlerFactory;
 import org.openhab.core.thing.binding.ThingHandler;
 import org.openhab.core.thing.binding.ThingHandlerFactory;
+import org.openhab.core.thing.binding.ThingTypeProvider;
 import org.openhab.core.thing.binding.builder.ThingBuilder;
 import org.openhab.core.thing.binding.builder.ThingStatusInfoBuilder;
 import org.openhab.core.thing.testutil.i18n.DefaultLocaleSetter;
+import org.openhab.core.thing.type.ThingType;
+import org.openhab.core.thing.type.ThingTypeBuilder;
+import org.openhab.core.thing.type.ThingTypeRegistry;
 import org.openhab.core.types.Command;
 import org.openhab.core.util.BundleResolver;
 import org.osgi.framework.Bundle;
@@ -54,15 +60,65 @@ import org.osgi.service.component.ComponentContext;
  * @author Thomas Höfer - Initial contribution
  * @author Henning Sudbrock - Migration from Groovy to Java
  */
+@NonNullByDefault
 public class ThingStatusInfoI18nLocalizationServiceOSGiTest extends JavaOSGiTest {
 
     private static final String TEST_BUNDLE_NAME = "thingStatusInfoI18nTest.bundle";
 
-    private Thing thing;
-    private ThingStatusInfoI18nLocalizationService thingStatusInfoI18nLocalizationService;
-    private ManagedThingProvider managedThingProvider;
-    private Locale defaultLocale;
-    private Bundle testBundle;
+    private @NonNullByDefault({}) ConfigurationAdmin configurationAdmin;
+    private @NonNullByDefault({}) Locale defaultLocale;
+    private @NonNullByDefault({}) ManagedThingProvider managedThingProvider;
+    private @NonNullByDefault({}) Bundle testBundle;
+    private @NonNullByDefault({}) Thing thing;
+    private @NonNullByDefault({}) ThingStatusInfoI18nLocalizationService thingStatusInfoI18nLocalizationService;
+
+    @BeforeEach
+    public void setup() throws Exception {
+        configurationAdmin = getService(ConfigurationAdmin.class);
+        assertNotNull(configurationAdmin);
+
+        LocaleProvider localeProvider = getService(LocaleProvider.class);
+        assertThat(localeProvider, is(notNullValue()));
+        defaultLocale = localeProvider.getLocale();
+
+        new DefaultLocaleSetter(configurationAdmin).setDefaultLocale(Locale.ENGLISH);
+        waitForAssert(() -> assertThat(localeProvider.getLocale(), is(Locale.ENGLISH)));
+
+        registerVolatileStorageService();
+
+        SimpleThingHandlerFactory simpleThingHandlerFactory = new SimpleThingHandlerFactory();
+        ComponentContext componentContext = mock(ComponentContext.class);
+        when(componentContext.getBundleContext()).thenReturn(bundleContext);
+        simpleThingHandlerFactory.activate(componentContext);
+        registerService(simpleThingHandlerFactory, ThingHandlerFactory.class.getName());
+
+        registerThingType();
+
+        thing = ThingBuilder.create(new ThingTypeUID("aaa:bbb"), "ccc").build();
+
+        managedThingProvider = getService(ManagedThingProvider.class);
+        assertThat(managedThingProvider, is(notNullValue()));
+
+        managedThingProvider.add(thing);
+
+        waitForAssert(() -> assertThat(thing.getStatus(), is(ThingStatus.ONLINE)));
+
+        testBundle = SyntheticBundleInstaller.install(bundleContext, TEST_BUNDLE_NAME);
+        assertThat(testBundle, is(notNullValue()));
+
+        thingStatusInfoI18nLocalizationService = getService(ThingStatusInfoI18nLocalizationService.class);
+        assertThat(thingStatusInfoI18nLocalizationService, is(notNullValue()));
+
+        thingStatusInfoI18nLocalizationService.setBundleResolver(new BundleResolverImpl());
+    }
+
+    @AfterEach
+    public void tearDown() throws IOException, BundleException {
+        testBundle.uninstall();
+        managedThingProvider.remove(thing.getUID());
+        new DefaultLocaleSetter(configurationAdmin).setDefaultLocale(defaultLocale);
+        waitForAssert(() -> assertThat(getService(LocaleProvider.class).getLocale(), is(defaultLocale)));
+    }
 
     @Test
     public void thingStatusInfoNotChangedIfNoDescription() {
@@ -215,49 +271,6 @@ public class ThingStatusInfoI18nLocalizationServiceOSGiTest extends JavaOSGiTest
                 "Some test text with params: some other text - 60")));
     }
 
-    @BeforeEach
-    public void setup() throws Exception {
-        LocaleProvider localeProvider = getService(LocaleProvider.class);
-        assertThat(localeProvider, is(notNullValue()));
-        defaultLocale = localeProvider.getLocale();
-
-        new DefaultLocaleSetter(getService(ConfigurationAdmin.class)).setDefaultLocale(Locale.ENGLISH);
-        waitForAssert(() -> assertThat(localeProvider.getLocale(), is(Locale.ENGLISH)));
-
-        registerVolatileStorageService();
-
-        SimpleThingHandlerFactory simpleThingHandlerFactory = new SimpleThingHandlerFactory();
-        ComponentContext componentContext = mock(ComponentContext.class);
-        when(componentContext.getBundleContext()).thenReturn(bundleContext);
-        simpleThingHandlerFactory.activate(componentContext);
-        registerService(simpleThingHandlerFactory, ThingHandlerFactory.class.getName());
-
-        thing = ThingBuilder.create(new ThingTypeUID("aaa:bbb"), "ccc").build();
-
-        managedThingProvider = getService(ManagedThingProvider.class);
-        assertThat(managedThingProvider, is(notNullValue()));
-
-        managedThingProvider.add(thing);
-
-        waitForAssert(() -> assertThat(thing.getStatus(), is(ThingStatus.ONLINE)));
-
-        testBundle = SyntheticBundleInstaller.install(bundleContext, TEST_BUNDLE_NAME);
-        assertThat(testBundle, is(notNullValue()));
-
-        thingStatusInfoI18nLocalizationService = getService(ThingStatusInfoI18nLocalizationService.class);
-        assertThat(thingStatusInfoI18nLocalizationService, is(notNullValue()));
-
-        thingStatusInfoI18nLocalizationService.setBundleResolver(new BundleResolverImpl());
-    }
-
-    @AfterEach
-    public void tearDown() throws IOException, BundleException {
-        testBundle.uninstall();
-        managedThingProvider.remove(thing.getUID());
-        new DefaultLocaleSetter(getService(ConfigurationAdmin.class)).setDefaultLocale(defaultLocale);
-        waitForAssert(() -> assertThat(getService(LocaleProvider.class).getLocale(), is(defaultLocale)));
-    }
-
     @SuppressWarnings("null")
     private void setThingStatusInfo(Thing thing, ThingStatusInfo thingStatusInfo) {
         ((SimpleThingHandler) thing.getHandler()).setThingStatusInfo(thingStatusInfo);
@@ -276,7 +289,7 @@ public class ThingStatusInfoI18nLocalizationServiceOSGiTest extends JavaOSGiTest
         }
 
         @Override
-        protected ThingHandler createHandler(Thing thing) {
+        protected @Nullable ThingHandler createHandler(Thing thing) {
             return new SimpleThingHandler(thing);
         }
     }
@@ -315,12 +328,25 @@ public class ThingStatusInfoI18nLocalizationServiceOSGiTest extends JavaOSGiTest
      */
     private class BundleResolverImpl implements BundleResolver {
         @Override
-        public Bundle resolveBundle(Class<?> clazz) {
+        public Bundle resolveBundle(@Nullable Class<?> clazz) {
             if (clazz != null && clazz.equals(AbstractThingHandler.class)) {
                 return testBundle;
             } else {
                 return FrameworkUtil.getBundle(clazz);
             }
         }
+    }
+
+    private void registerThingType() {
+        ThingType thingType = ThingTypeBuilder.instance(new ThingTypeUID("aaa:bbb"), "label").build();
+
+        ThingTypeProvider thingTypeProvider = mock(ThingTypeProvider.class);
+        ThingTypeRegistry thingTypeRegistry = mock(ThingTypeRegistry.class);
+
+        when(thingTypeProvider.getThingType(eq(thingType.getUID()), nullable(Locale.class))).thenReturn(thingType);
+        when(thingTypeRegistry.getThingType(eq(thingType.getUID()))).thenReturn(thingType);
+
+        registerService(thingTypeProvider);
+        registerService(thingTypeRegistry);
     }
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -41,11 +41,7 @@ abstract class AbstractChannelTypeBuilder<T extends ChannelTypeBuilder<T>> imple
     protected @Nullable URI configDescriptionURI;
 
     protected AbstractChannelTypeBuilder(ChannelTypeUID channelTypeUID, String label) {
-        if (channelTypeUID == null) {
-            throw new IllegalArgumentException("ChannelTypeUID must be set.");
-        }
-
-        if (label == null || label.isEmpty()) {
+        if (label.isEmpty()) {
             throw new IllegalArgumentException("Label for a ChannelType must not be empty.");
         }
 

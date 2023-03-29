@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -18,6 +18,8 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.eclipse.jdt.annotation.NonNull;
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.automation.Rule;
 import org.openhab.core.automation.template.TemplateProvider;
 import org.openhab.core.automation.type.ModuleTypeProvider;
@@ -34,6 +36,7 @@ import org.slf4j.LoggerFactory;
  * @author Kai Kreuzer - refactored (managed) provider and registry implementation
  * @param <E>
  */
+@NonNullByDefault
 public class AutomationResourceBundlesEventQueue<@NonNull E> implements Runnable {
 
     /**
@@ -52,7 +55,7 @@ public class AutomationResourceBundlesEventQueue<@NonNull E> implements Runnable
      */
     private boolean running = false;
 
-    private Thread runningThread;
+    private @Nullable Thread runningThread;
 
     /**
      * This field is for synchronization purposes

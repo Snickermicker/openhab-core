@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,12 +12,15 @@
  */
 package org.openhab.core.items;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+
 /**
  * This exception is thrown by the {@link ItemRegistry} if an item could
  * not be found.
  *
  * @author Kai Kreuzer - Initial contribution
  */
+@NonNullByDefault
 public class ItemNotFoundException extends ItemLookupException {
 
     public ItemNotFoundException(String name) {

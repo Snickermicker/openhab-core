@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -23,11 +23,14 @@ import javax.measure.Quantity;
 import javax.measure.quantity.Dimensionless;
 import javax.measure.quantity.Energy;
 import javax.measure.quantity.Length;
+import javax.measure.quantity.Mass;
 import javax.measure.quantity.Power;
 import javax.measure.quantity.Pressure;
 import javax.measure.quantity.Speed;
 import javax.measure.quantity.Temperature;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.hamcrest.Matcher;
 import org.hamcrest.core.IsEqual;
 import org.junit.jupiter.api.Test;
@@ -43,12 +46,21 @@ import tech.units.indriya.quantity.Quantities;
  *
  * @author Henning Treu - Initial contribution
  */
+@NonNullByDefault
 public class UnitsTest {
 
     private static final double DEFAULT_ERROR = 0.000000000000001d;
 
     private static <Q extends Quantity<?>> Matcher<? super Q> isQuantityEquals(Q quantity) {
         return new QuantityEquals(quantity);
+    }
+
+    @Test
+    public void pound2KilogramConversion() {
+        Quantity<Mass> lb = Quantities.getQuantity(BigDecimal.ONE, ImperialUnits.POUND);
+
+        assertThat(lb.to(SIUnits.GRAM),
+                isQuantityEquals(Quantities.getQuantity(new BigDecimal("453.59237"), SIUnits.GRAM)));
     }
 
     @Test
@@ -73,6 +85,14 @@ public class UnitsTest {
 
         assertThat(pascal.to(ImperialUnits.INCH_OF_MERCURY),
                 isQuantityEquals(Quantities.getQuantity(BigDecimal.ONE, ImperialUnits.INCH_OF_MERCURY)));
+    }
+
+    @Test
+    public void testPascal2psiConversion() {
+        Quantity<Pressure> pascal = Quantities.getQuantity(new BigDecimal("6894.757"), SIUnits.PASCAL);
+
+        assertThat(pascal.to(ImperialUnits.POUND_FORCE_SQUARE_INCH),
+                isQuantityEquals(Quantities.getQuantity(BigDecimal.ONE, ImperialUnits.POUND_FORCE_SQUARE_INCH)));
     }
 
     @Test
@@ -376,7 +396,7 @@ public class UnitsTest {
         }
 
         @Override
-        public boolean matches(Object actualValue) {
+        public boolean matches(@Nullable Object actualValue) {
             if (actualValue instanceof Quantity) {
                 Quantity<?> other = (Quantity<?>) actualValue;
 

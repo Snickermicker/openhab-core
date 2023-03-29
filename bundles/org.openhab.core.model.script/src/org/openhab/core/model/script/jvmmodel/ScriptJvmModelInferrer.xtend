@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -26,6 +26,7 @@ import org.openhab.core.items.Item
 import org.openhab.core.types.Command
 import org.openhab.core.types.State
 import org.openhab.core.events.Event
+import org.openhab.core.automation.module.script.rulesupport.shared.ValueCache
 
 /**
  * <p>Infers a JVM model from the source model.</p> 
@@ -39,6 +40,9 @@ import org.openhab.core.events.Event
 class ScriptJvmModelInferrer extends AbstractModelInferrer {
 
     static private final Logger logger = LoggerFactory.getLogger(ScriptJvmModelInferrer)
+
+    /** Variable name for the input string in a "script transformation" or "script profile" */
+    public static final String VAR_INPUT = "input";
 
     /** Variable name for the item in a "state triggered" or "command triggered" rule */
     public static final String VAR_TRIGGERING_ITEM = "triggeringItem";
@@ -60,6 +64,19 @@ class ScriptJvmModelInferrer extends AbstractModelInferrer {
 
     /** Variable name for the triggering channel in a "trigger event" rule */
     public static final String VAR_TRIGGERING_CHANNEL = "triggeringChannel";
+
+    /** Variable name for the triggering thing in a "thing status trigger" rule */
+    public static final String VAR_TRIGGERING_THING = "triggeringThing";
+    
+    /** Variable name for the previous status of the triggering thing in a "thing status trigger" rule */
+    public static final String VAR_PREVIOUS_STATUS = "previousThingStatus";
+    
+    /** Variable name for the new status of the triggering thing in a "thing status trigger" rule */
+    public static final String VAR_NEW_STATUS = "newThingStatus";
+
+    /** Variable name for the cache */
+    public static final String VAR_PRIVATE_CACHE = "privateCache";
+    public static final String VAR_SHARED_CACHE = "sharedCache";
 
     /**
      * conveninence API to build and initialize JvmTypes and their members.
@@ -112,6 +129,8 @@ class ScriptJvmModelInferrer extends AbstractModelInferrer {
 
             members += script.toMethod("_script", null) [
                 static = true
+                val inputTypeRef = script.newTypeRef(String)
+                parameters += script.toParameter(VAR_INPUT, inputTypeRef)
                 val itemTypeRef = script.newTypeRef(Item)
                 parameters += script.toParameter(VAR_TRIGGERING_ITEM, itemTypeRef)
                 val itemNameRef = script.newTypeRef(String)
@@ -124,8 +143,18 @@ class ScriptJvmModelInferrer extends AbstractModelInferrer {
                 parameters += script.toParameter(VAR_RECEIVED_EVENT, eventTypeRef)
                 val channelRef = script.newTypeRef(String)
                 parameters += script.toParameter(VAR_TRIGGERING_CHANNEL, channelRef)
+                val thingRef = script.newTypeRef(String)
+                parameters += script.toParameter(VAR_TRIGGERING_THING, thingRef)
+                val oldThingStatusRef = script.newTypeRef(String)
+                parameters += script.toParameter(VAR_PREVIOUS_STATUS, oldThingStatusRef)
+                val newThingStatusRef = script.newTypeRef(String)
+                parameters += script.toParameter(VAR_NEW_STATUS, newThingStatusRef)
                 val stateTypeRef2 = script.newTypeRef(State)
                 parameters += script.toParameter(VAR_NEW_STATE, stateTypeRef2)
+                val privateCacheTypeRef = script.newTypeRef(ValueCache)
+                parameters += script.toParameter(VAR_PRIVATE_CACHE, privateCacheTypeRef)
+                val sharedCacheTypeRef = script.newTypeRef(ValueCache)
+                parameters += script.toParameter(VAR_SHARED_CACHE, sharedCacheTypeRef)
                 body = script
             ]
         ]

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,9 +12,7 @@
  */
 package org.openhab.core.automation.internal.module.handler;
 
-import java.util.Dictionary;
 import java.util.HashMap;
-import java.util.Hashtable;
 import java.util.Map;
 import java.util.Set;
 
@@ -27,6 +25,7 @@ import org.openhab.core.automation.handler.TriggerHandlerCallback;
 import org.openhab.core.events.Event;
 import org.openhab.core.events.EventFilter;
 import org.openhab.core.events.EventSubscriber;
+import org.openhab.core.events.TopicEventFilter;
 import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.events.ThingStatusInfoChangedEvent;
 import org.openhab.core.thing.events.ThingStatusInfoEvent;
@@ -42,7 +41,7 @@ import org.slf4j.LoggerFactory;
  * @author Christoph Weitkamp - Initial contribution
  */
 @NonNullByDefault
-public class ThingStatusTriggerHandler extends BaseTriggerModuleHandler implements EventSubscriber, EventFilter {
+public class ThingStatusTriggerHandler extends BaseTriggerModuleHandler implements EventSubscriber {
 
     public static final String UPDATE_MODULE_TYPE_ID = "core.ThingStatusUpdateTrigger";
     public static final String CHANGE_MODULE_TYPE_ID = "core.ThingStatusChangeTrigger";
@@ -65,6 +64,7 @@ public class ThingStatusTriggerHandler extends BaseTriggerModuleHandler implemen
     private final BundleContext bundleContext;
 
     private final ServiceRegistration<?> eventSubscriberRegistration;
+    private final TopicEventFilter eventTopicFilter;
 
     public ThingStatusTriggerHandler(Trigger module, BundleContext bundleContext) {
         super(module);
@@ -77,10 +77,10 @@ public class ThingStatusTriggerHandler extends BaseTriggerModuleHandler implemen
             this.types = Set.of(ThingStatusInfoChangedEvent.TYPE);
         }
         this.bundleContext = bundleContext;
-        Dictionary<String, Object> properties = new Hashtable<>();
-        properties.put("event.topics", "openhab/things/" + thingUID + "/*");
-        eventSubscriberRegistration = this.bundleContext.registerService(EventSubscriber.class.getName(), this,
-                properties);
+
+        this.eventTopicFilter = new TopicEventFilter("^openhab/things/" + thingUID.replace("*", ".*?") + "/.*$");
+
+        eventSubscriberRegistration = this.bundleContext.registerService(EventSubscriber.class.getName(), this, null);
     }
 
     @Override
@@ -90,7 +90,7 @@ public class ThingStatusTriggerHandler extends BaseTriggerModuleHandler implemen
 
     @Override
     public @Nullable EventFilter getEventFilter() {
-        return this;
+        return eventTopicFilter;
     }
 
     @Override
@@ -138,11 +138,5 @@ public class ThingStatusTriggerHandler extends BaseTriggerModuleHandler implemen
     public void dispose() {
         eventSubscriberRegistration.unregister();
         super.dispose();
-    }
-
-    @Override
-    public boolean apply(Event event) {
-        logger.trace("->FILTER: {}: {}", event.getTopic(), thingUID);
-        return event.getTopic().contains("openhab/things/" + thingUID + "/");
     }
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -17,7 +17,9 @@ import java.net.URLEncoder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.DayOfWeek;
 import java.time.Duration;
+import java.time.Month;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
@@ -83,15 +85,15 @@ public class DefaultScriptScopeProvider implements ScriptExtensionProvider {
 
     private final Map<String, Object> elements = new ConcurrentHashMap<>();
 
-    private final ScriptBusEvent busEvent;
-    private final ScriptThingActions thingActions;
+    private final ScriptBusEventImpl busEvent;
+    private final ScriptThingActionsImpl thingActions;
 
     @Activate
     public DefaultScriptScopeProvider(final @Reference ItemRegistry itemRegistry,
             final @Reference ThingRegistry thingRegistry, final @Reference RuleRegistry ruleRegistry,
             final @Reference EventPublisher eventPublisher) {
-        this.busEvent = new ScriptBusEvent(itemRegistry, eventPublisher);
-        this.thingActions = new ScriptThingActions(thingRegistry);
+        this.busEvent = new ScriptBusEventImpl(itemRegistry, eventPublisher);
+        this.thingActions = new ScriptThingActionsImpl(thingRegistry);
 
         elements.put("State", State.class);
         elements.put("Command", Command.class);
@@ -159,7 +161,9 @@ public class DefaultScriptScopeProvider implements ScriptExtensionProvider {
 
         // date time static functions
         elements.put("ChronoUnit", ChronoUnit.class);
+        elements.put("DayOfWeek", DayOfWeek.class);
         elements.put("Duration", Duration.class);
+        elements.put("Month", Month.class);
         elements.put("ZoneId", ZoneId.class);
         elements.put("ZonedDateTime", ZonedDateTime.class);
 

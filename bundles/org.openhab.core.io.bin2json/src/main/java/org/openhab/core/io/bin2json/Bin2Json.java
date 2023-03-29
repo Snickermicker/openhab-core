@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -54,18 +54,19 @@ import com.igormaznitsa.jbbp.model.JBBPFieldUShort;
  *
  * Parser rules follows Java Binary Block Parser syntax.
  *
- * <p>
+ * <p />
  *
  * See details from <a href=
  * "https://github.com/raydac/java-binary-block-parser">https://github.com/raydac/java-binary-block-parser</a>
  *
- * <p>
+ * <p />
  * Usage example:
  *
  * <pre>
  * {@code
  * JsonObject json = new Bin2Json("byte a; byte b; ubyte c;").convert("03FAFF");
  * json.toString() = {"a":3,"b":-6,"c":255}
+ * }
  * </pre>
  *
  * @author Pauli Anttila - Initial contribution

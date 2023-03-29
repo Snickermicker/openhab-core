@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -19,6 +19,7 @@ import static org.mockito.Mockito.*;
 import java.io.ByteArrayInputStream;
 import java.util.Collection;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,12 +34,13 @@ import org.osgi.service.component.ComponentContext;
 /**
  * @author Henning Treu - Initial contribution
  */
+@NonNullByDefault
 public class GenericThingProviderTest2 extends JavaOSGiTest {
 
     private static final String TESTMODEL_NAME = "testModelX.things";
 
-    private ModelRepository modelRepository;
-    private ThingRegistry thingRegistry;
+    private @NonNullByDefault({}) ModelRepository modelRepository;
+    private @NonNullByDefault({}) ThingRegistry thingRegistry;
 
     @BeforeEach
     public void setUp() {

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -22,6 +22,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Dictionary;
 import java.util.Hashtable;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.openhab.core.auth.oauth2client.internal.cipher.SymmetricKeyCipher;
@@ -34,11 +35,12 @@ import org.osgi.service.cm.ConfigurationAdmin;
  *
  * @author Gary Tse - Initial contribution
  */
+@NonNullByDefault
 public class CipherTest {
 
     private static final String PLAIN_TEXT = "hello world";
 
-    private SymmetricKeyCipher symmetricKeyCipher;
+    private @NonNullByDefault({}) SymmetricKeyCipher symmetricKeyCipher;
 
     @BeforeEach
     public void setUp() throws IOException, InvalidSyntaxException, NoSuchAlgorithmException {

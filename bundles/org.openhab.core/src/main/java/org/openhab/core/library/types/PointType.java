@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -126,6 +126,24 @@ public class PointType implements ComplexType, Command, State {
         double sin22lat = Math.sin(2.0 * latRad) * Math.sin(2.0 * latRad);
         double result = (9.780327 * (1.0 + 5.3024e-3 * sin2lat - 5.8e-6 * sin22lat) + deltaG);
         return new DecimalType(result);
+    }
+
+    /**
+     * Return the bearing in degrees from otherPoint following a great circle path.
+     *
+     * @param otherPoint
+     * @return bearing in degrees
+     * @see <a href="http://www.movable-type.co.uk/scripts/latlong.html">Calculate distance, bearing and more between
+     *      Latitude/Longitude points</a>
+     */
+    public DecimalType bearingTo(PointType otherPoint) {
+        double y = Math.sin(otherPoint.longitude.doubleValue() - this.longitude.doubleValue())
+                * Math.cos(otherPoint.latitude.doubleValue());
+        double x = Math.cos(this.latitude.doubleValue()) * Math.sin(otherPoint.latitude.doubleValue())
+                - Math.sin(this.latitude.doubleValue()) * Math.cos(otherPoint.latitude.doubleValue())
+                        * Math.cos(otherPoint.longitude.doubleValue() - this.longitude.doubleValue());
+        double deg = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+        return new DecimalType(deg);
     }
 
     /**

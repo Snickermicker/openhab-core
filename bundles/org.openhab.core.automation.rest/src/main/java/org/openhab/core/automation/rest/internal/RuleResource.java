@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -40,6 +40,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
+import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriInfo;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -141,12 +142,17 @@ public class RuleResource implements RESTResource {
     }
 
     @GET
+    @RolesAllowed({ Role.USER, Role.ADMIN })
     @Produces(MediaType.APPLICATION_JSON)
     @Operation(operationId = "getRules", summary = "Get available rules, optionally filtered by tags and/or prefix.", responses = {
             @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = EnrichedRuleDTO.class)))) })
-    public Response get(@QueryParam("prefix") final @Nullable String prefix,
+    public Response get(@Context SecurityContext securityContext, @QueryParam("prefix") final @Nullable String prefix,
             @QueryParam("tags") final @Nullable List<String> tags,
             @QueryParam("summary") @Parameter(description = "summary fields only") @Nullable Boolean summary) {
+        if ((summary == null || !summary) && !securityContext.isUserInRole(Role.ADMIN)) {
+            // users may only access the summary
+            return JSONResponse.createErrorResponse(Status.UNAUTHORIZED, "Authentication required");
+        }
         // match all
         Predicate<Rule> p = r -> true;
 
@@ -312,21 +318,34 @@ public class RuleResource implements RESTResource {
     @POST
     @RolesAllowed({ Role.USER, Role.ADMIN })
     @Path("/{ruleUID}/runnow")
-    @Consumes(MediaType.TEXT_PLAIN)
+    @Consumes(MediaType.APPLICATION_JSON)
     @Operation(operationId = "runRuleNow", summary = "Executes actions of the rule.", responses = {
+            @ApiResponse(responseCode = "200", description = "OK"),
+            @ApiResponse(responseCode = "404", description = "Rule corresponding to the given UID does not found.") })
+    public Response runNow(@PathParam("ruleUID") @Parameter(description = "ruleUID") String ruleUID,
+            @Nullable @Parameter(description = "the context for running this rule", allowEmptyValue = true) Map<String, Object> context)
+            throws IOException {
+        Rule rule = ruleRegistry.get(ruleUID);
+        if (rule == null) {
+            logger.info("Received HTTP POST request for run now at '{}' for the unknown rule '{}'.", uriInfo.getPath(),
+                    ruleUID);
+            return Response.status(Status.NOT_FOUND).build();
+        } else {
+            ruleManager.runNow(ruleUID, false, context);
+            return Response.ok().build();
+        }
+    }
+
+    @POST
+    @RolesAllowed({ Role.USER, Role.ADMIN })
+    @Path("/{ruleUID}/runnow")
+    @Consumes(MediaType.TEXT_PLAIN)
+    @Operation(deprecated = true, operationId = "runRuleNow", summary = "Executes actions of the rule.", responses = {
             @ApiResponse(responseCode = "200", description = "OK"),
             @ApiResponse(responseCode = "404", description = "Rule corresponding to the given UID does not found.") })
     public Response runNow(@PathParam("ruleUID") @Parameter(description = "ruleUID") String ruleUID)
             throws IOException {
-        Rule rule = ruleRegistry.get(ruleUID);
-        if (rule == null) {
-            logger.info("Received HTTP PUT request for run now at '{}' for the unknown rule '{}'.", uriInfo.getPath(),
-                    ruleUID);
-            return Response.status(Status.NOT_FOUND).build();
-        } else {
-            ruleManager.runNow(ruleUID);
-            return Response.ok().build();
-        }
+        return runNow(ruleUID, null);
     }
 
     @GET

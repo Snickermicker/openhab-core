@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,37 +12,43 @@
  */
 package org.openhab.core.io.console.karaf.internal;
 
+import java.io.PrintStream;
+
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.core.io.console.Console;
 
 /**
  *
  * @author Markus Rathgeb - Initial contribution
  */
+@NonNullByDefault
 public class OSGiConsole implements Console {
 
     private final String scope;
+    private final PrintStream out;
 
-    public OSGiConsole(final String scope) {
+    public OSGiConsole(final String scope, PrintStream out) {
         this.scope = scope;
+        this.out = out;
     }
 
     @Override
     public void printf(String format, Object... args) {
-        System.out.printf(format, args);
+        out.printf(format, args);
     }
 
     @Override
     public void print(final String s) {
-        System.out.print(s);
+        out.print(s);
     }
 
     @Override
     public void println(final String s) {
-        System.out.println(s);
+        out.println(s);
     }
 
     @Override
     public void printUsage(final String s) {
-        System.out.println(String.format("Usage: %s:%s", scope, s));
+        out.println(String.format("Usage: %s:%s", scope, s));
     }
 }

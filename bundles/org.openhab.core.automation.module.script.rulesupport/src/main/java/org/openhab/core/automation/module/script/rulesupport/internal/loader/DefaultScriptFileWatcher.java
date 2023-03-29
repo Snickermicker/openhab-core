@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -16,11 +16,12 @@ import java.io.File;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.core.automation.module.script.ScriptEngineManager;
-import org.openhab.core.automation.module.script.rulesupport.loader.ScriptFileWatcher;
+import org.openhab.core.automation.module.script.rulesupport.loader.AbstractScriptFileWatcher;
 import org.openhab.core.service.ReadyService;
+import org.openhab.core.service.StartLevelService;
+import org.openhab.core.service.WatchService;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
-import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
 
 /**
@@ -31,25 +32,15 @@ import org.osgi.service.component.annotations.Reference;
  */
 @NonNullByDefault
 @Component(immediate = true)
-public class DefaultScriptFileWatcher extends ScriptFileWatcher {
+public class DefaultScriptFileWatcher extends AbstractScriptFileWatcher {
 
     private static final String FILE_DIRECTORY = "automation" + File.separator + "jsr223";
 
     @Activate
-    public DefaultScriptFileWatcher(final @Reference ScriptEngineManager manager,
-            final @Reference ReadyService readyService) {
-        super(manager, null, readyService, FILE_DIRECTORY);
-    }
-
-    @Activate
-    @Override
-    public void activate() {
-        super.activate();
-    }
-
-    @Deactivate
-    @Override
-    public void deactivate() {
-        super.deactivate();
+    public DefaultScriptFileWatcher(
+            final @Reference(target = WatchService.CONFIG_WATCHER_FILTER) WatchService watchService,
+            final @Reference ScriptEngineManager manager, final @Reference ReadyService readyService,
+            final @Reference StartLevelService startLevelService) {
+        super(watchService, manager, readyService, startLevelService, FILE_DIRECTORY, true);
     }
 }

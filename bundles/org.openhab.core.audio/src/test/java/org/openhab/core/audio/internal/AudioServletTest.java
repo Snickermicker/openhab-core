@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -14,16 +14,23 @@ package org.openhab.core.audio.internal;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.io.File;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jetty.client.api.ContentResponse;
 import org.eclipse.jetty.http.HttpStatus;
 import org.junit.jupiter.api.Test;
 import org.openhab.core.audio.AudioFormat;
 import org.openhab.core.audio.AudioStream;
 import org.openhab.core.audio.FileAudioStream;
+import org.openhab.core.audio.FixedLengthAudioStream;
 import org.openhab.core.audio.internal.utils.BundledSoundFileHandler;
 
 /**
@@ -32,6 +39,7 @@ import org.openhab.core.audio.internal.utils.BundledSoundFileHandler;
  * @author Petar Valchev - Initial contribution
  * @author Wouter Born - Migrate tests from Groovy to Java
  */
+@NonNullByDefault
 public class AudioServletTest extends AbstractAudioServletTest {
 
     private static final String MEDIA_TYPE_AUDIO_WAV = "audio/wav";
@@ -54,7 +62,7 @@ public class AudioServletTest extends AbstractAudioServletTest {
     }
 
     @Test
-    public void audioServletProcessesStreamFromWavFile() throws Exception {
+    public void audioServletProcessesStreamFromWavFileWithoutAcceptHeader() throws Exception {
         try (BundledSoundFileHandler fileHandler = new BundledSoundFileHandler()) {
             AudioStream audioStream = new FileAudioStream(new File(fileHandler.wavFilePath()));
 
@@ -63,6 +71,18 @@ public class AudioServletTest extends AbstractAudioServletTest {
             assertThat("The response status was not as expected", response.getStatus(), is(HttpStatus.OK_200));
             assertThat("The response media type was not as expected", response.getMediaType(),
                     is(MEDIA_TYPE_AUDIO_WAV));
+        }
+    }
+
+    @Test
+    public void audioServletProcessesStreamFromWavFileWithAcceptHeader() throws Exception {
+        try (BundledSoundFileHandler fileHandler = new BundledSoundFileHandler()) {
+            AudioStream audioStream = new FileAudioStream(new File(fileHandler.wavFilePath()));
+
+            ContentResponse response = getHttpResponseWithAccept(audioStream, "audio/invalid, audio/x-wav");
+
+            assertThat("The response status was not as expected", response.getStatus(), is(HttpStatus.OK_200));
+            assertThat("The response media type was not as expected", response.getMediaType(), is("audio/x-wav"));
         }
     }
 
@@ -109,7 +129,7 @@ public class AudioServletTest extends AbstractAudioServletTest {
 
     @Test
     public void requestToMultitimeStreamCannotBeDoneAfterTheTimeoutOfTheStreamHasExipred() throws Exception {
-        final int streamTimeout = 1;
+        final int streamTimeout = 3;
 
         AudioStream audioStream = getByteArrayAudioStream(testByteArray, AudioFormat.CONTAINER_NONE,
                 AudioFormat.CODEC_MP3);
@@ -147,5 +167,65 @@ public class AudioServletTest extends AbstractAudioServletTest {
 
         response = getHttpRequest(url).send();
         assertThat("The response status was not as expected", response.getStatus(), is(HttpStatus.NOT_FOUND_404));
+    }
+
+    @Test
+    public void oneTimeStreamIsClosedAndRemovedAfterServed() throws Exception {
+        AudioStream audioStream = mock(AudioStream.class);
+        AudioFormat audioFormat = mock(AudioFormat.class);
+        when(audioStream.getFormat()).thenReturn(audioFormat);
+        when(audioFormat.getCodec()).thenReturn(AudioFormat.CODEC_MP3);
+
+        String url = serveStream(audioStream);
+
+        getHttpRequest(url).send();
+
+        verify(audioStream).close();
+        assertThat(audioServlet.getOneTimeStreams().values(), not(contains(audioStream)));
+    }
+
+    @Test
+    public void multiTimeStreamIsClosedAfterExpired() throws Exception {
+        AtomicInteger cloneCounter = new AtomicInteger();
+        FixedLengthAudioStream audioStream = mock(FixedLengthAudioStream.class);
+        AudioStream clonedStream = mock(AudioStream.class);
+        AudioFormat audioFormat = mock(AudioFormat.class);
+        when(audioStream.getFormat()).thenReturn(audioFormat);
+        when(audioStream.getClonedStream()).thenAnswer(answer -> {
+            cloneCounter.getAndIncrement();
+            return clonedStream;
+        });
+        when(audioFormat.getCodec()).thenReturn(AudioFormat.CODEC_MP3);
+
+        String url = serveStream(audioStream, 2);
+
+        waitForAssert(() -> {
+            try {
+                ContentResponse resp = getHttpRequest(url).send();
+                assertThat(resp.getStatus(), is(404));
+            } catch (Exception e) {
+                throw new IllegalStateException(e);
+            }
+
+        });
+
+        verify(audioStream).close();
+        assertThat(audioServlet.getMultiTimeStreams().values(), not(contains(audioStream)));
+
+        verify(clonedStream, times(cloneCounter.get())).close();
+    }
+
+    @Test
+    public void streamsAreClosedOnDeactivate() throws Exception {
+        AudioStream oneTimeStream = mock(AudioStream.class);
+        FixedLengthAudioStream multiTimeStream = mock(FixedLengthAudioStream.class);
+
+        serveStream(oneTimeStream);
+        serveStream(multiTimeStream, 10);
+
+        audioServlet.deactivate();
+
+        verify(oneTimeStream).close();
+        verify(multiTimeStream).close();
     }
 }

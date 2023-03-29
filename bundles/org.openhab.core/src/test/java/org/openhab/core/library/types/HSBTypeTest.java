@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.Test;
  * @author Chris Jackson - Initial contribution
  * @author Stefan Triller - More tests for type conversions
  */
+@NonNullByDefault
 public class HSBTypeTest {
 
     @Test
@@ -37,6 +39,15 @@ public class HSBTypeTest {
         hsb1 = new HSBType("0,0,0");
         hsb2 = new HSBType("0,0,0");
         assertTrue(hsb1.equals(hsb2));
+    }
+
+    @Test
+    public void testFormat() {
+        HSBType hsb = new HSBType("316,69,47");
+
+        assertEquals("color 316,69,47", hsb.format("color %hsb%"));
+        assertEquals("color 119,37,97", hsb.format("color %rgb%"));
+        assertEquals("color 316,69,47", hsb.format("color %s"));
     }
 
     @Test
@@ -118,14 +129,8 @@ public class HSBTypeTest {
     public void testConversionToXY() {
         HSBType hsb = new HSBType("220,90,50");
         PercentType[] xy = hsb.toXY();
-        assertEquals(new PercentType("16.969364"), xy[0]);
-        assertEquals(new PercentType("12.379659"), xy[1]);
-    }
-
-    @Test
-    public void testCreateFromXY() {
-        HSBType hsb = HSBType.fromXY(5f, 3f);
-        assertEquals(new HSBType("11,100,100"), hsb);
+        assertEquals(14.65, xy[0].doubleValue(), 0.01);
+        assertEquals(11.56, xy[1].doubleValue(), 0.01);
     }
 
     @Test

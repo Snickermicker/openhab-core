@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -86,7 +86,7 @@ public class GenerateDefaultTranslationsMojo extends AbstractI18nMojo {
     }
 
     private String propertiesFileName(BundleInfo bundleInfo) {
-        String name = bundleInfo.getBindingId();
+        String name = bundleInfo.getAddonId();
         if (name.isEmpty()) {
             Optional<ConfigDescription> optional = bundleInfo.getConfigDescriptions().stream().findFirst();
             if (optional.isPresent()) {
@@ -110,6 +110,9 @@ public class GenerateDefaultTranslationsMojo extends AbstractI18nMojo {
     protected String generateDefaultTranslations(Path defaultTranslationsPath) {
         XmlToTranslationsConverter xmlConverter = new XmlToTranslationsConverter();
         Translations generatedTranslations = xmlConverter.convert(bundleInfo);
+
+        JsonToTranslationsConverter jsonConverter = new JsonToTranslationsConverter();
+        jsonConverter.convert(bundleInfo).sections.forEach(generatedTranslations::addSection);
 
         PropertiesToTranslationsConverter propertiesConverter = new PropertiesToTranslationsConverter(getLog());
         Translations existingTranslations = propertiesConverter.convert(defaultTranslationsPath);

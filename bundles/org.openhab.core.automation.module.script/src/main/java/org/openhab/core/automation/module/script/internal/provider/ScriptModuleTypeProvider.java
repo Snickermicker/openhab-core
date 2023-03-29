@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -17,10 +17,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.TreeMap;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import javax.script.ScriptEngine;
 
@@ -28,6 +25,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.automation.Visibility;
 import org.openhab.core.automation.module.script.ScriptEngineFactory;
+import org.openhab.core.automation.module.script.internal.ScriptEngineFactoryHelper;
 import org.openhab.core.automation.module.script.internal.handler.AbstractScriptModuleHandler;
 import org.openhab.core.automation.module.script.internal.handler.ScriptActionHandler;
 import org.openhab.core.automation.module.script.internal.handler.ScriptConditionHandler;
@@ -36,12 +34,13 @@ import org.openhab.core.automation.type.ConditionType;
 import org.openhab.core.automation.type.ModuleType;
 import org.openhab.core.automation.type.ModuleTypeProvider;
 import org.openhab.core.automation.type.Output;
-import org.openhab.core.common.registry.ProviderChangeListener;
+import org.openhab.core.common.registry.AbstractProvider;
 import org.openhab.core.config.core.ConfigDescriptionParameter;
 import org.openhab.core.config.core.ConfigDescriptionParameter.Type;
 import org.openhab.core.config.core.ConfigDescriptionParameterBuilder;
 import org.openhab.core.config.core.ParameterOption;
 import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.osgi.service.component.annotations.ReferencePolicy;
@@ -56,15 +55,23 @@ import org.slf4j.LoggerFactory;
  */
 @NonNullByDefault
 @Component
-public class ScriptModuleTypeProvider implements ModuleTypeProvider {
+public class ScriptModuleTypeProvider extends AbstractProvider<ModuleType> implements ModuleTypeProvider {
 
     private final Logger logger = LoggerFactory.getLogger(ScriptModuleTypeProvider.class);
     private final Map<String, String> parameterOptions = new TreeMap<>();
 
+    @Deactivate
+    public void deactivate() {
+        listeners.clear();
+        parameterOptions.clear();
+    }
+
     @SuppressWarnings("unchecked")
     @Override
     public @Nullable ModuleType getModuleType(String UID, @Nullable Locale locale) {
-        if (ScriptActionHandler.TYPE_ID.equals(UID)) {
+        if (parameterOptions.isEmpty()) {
+            return null;
+        } else if (ScriptActionHandler.TYPE_ID.equals(UID)) {
             return getScriptActionType(locale);
         } else if (ScriptConditionHandler.TYPE_ID.equals(UID)) {
             return getScriptConditionType(locale);
@@ -73,26 +80,22 @@ public class ScriptModuleTypeProvider implements ModuleTypeProvider {
         }
     }
 
-    private @Nullable ModuleType getScriptActionType(@Nullable Locale locale) {
-        if (parameterOptions.isEmpty()) {
-            return null;
-        } else {
-            List<Output> outputs = new ArrayList<>();
-            Output result = new Output("result", "java.lang.Object", "result", "the script result", null, null, null);
-            outputs.add(result);
-            return new ActionType(ScriptActionHandler.TYPE_ID, getConfigDescriptions(locale), "execute a given script",
-                    "Allows the execution of a user-defined script.", null, Visibility.VISIBLE, null, outputs);
-        }
+    private ModuleType getScriptActionType(@Nullable Locale locale) {
+        List<Output> outputs = new ArrayList<>();
+        Output result = new Output("result", "java.lang.Object", "result", "the script result", null, null, null);
+        outputs.add(result);
+        return new ActionType(ScriptActionHandler.TYPE_ID, getConfigDescriptions(locale), "execute a given script",
+                "Allows the execution of a user-defined script.", null, Visibility.VISIBLE, null, outputs);
     }
 
-    private @Nullable ModuleType getScriptConditionType(@Nullable Locale locale) {
-        if (parameterOptions.isEmpty()) {
-            return null;
-        } else {
-            return new ConditionType(ScriptConditionHandler.TYPE_ID, getConfigDescriptions(locale),
-                    "a given script evaluates to true", "Allows the definition of a condition through a script.", null,
-                    Visibility.VISIBLE, null);
-        }
+    private ModuleType getScriptConditionType(@Nullable Locale locale) {
+        return new ConditionType(ScriptConditionHandler.TYPE_ID, getConfigDescriptions(locale),
+                "a given script evaluates to true", "Allows the definition of a condition through a script.", null,
+                Visibility.VISIBLE, null);
+    }
+
+    private List<ModuleType> getModuleTypesUnconditionally(@Nullable Locale locale) {
+        return List.of(getScriptActionType(locale), getScriptConditionType(locale));
     }
 
     /**
@@ -118,10 +121,7 @@ public class ScriptModuleTypeProvider implements ModuleTypeProvider {
 
     @Override
     public Collection<ModuleType> getModuleTypes(@Nullable Locale locale) {
-        return Stream
-                .of(Optional.ofNullable(getScriptActionType(locale)),
-                        Optional.ofNullable(getScriptConditionType(locale)))
-                .filter(Optional::isPresent).map(Optional::get).collect(Collectors.toUnmodifiableList());
+        return parameterOptions.isEmpty() ? List.of() : getModuleTypesUnconditionally(locale);
     }
 
     @Override
@@ -129,14 +129,16 @@ public class ScriptModuleTypeProvider implements ModuleTypeProvider {
         return getModuleTypes(null);
     }
 
-    @Override
-    public void addProviderChangeListener(ProviderChangeListener<ModuleType> listener) {
-        // does nothing because this provider does not change
+    private void notifyModuleTypesAdded() {
+        for (ModuleType moduleType : getModuleTypesUnconditionally(null)) {
+            notifyListenersAboutAddedElement(moduleType);
+        }
     }
 
-    @Override
-    public void removeProviderChangeListener(ProviderChangeListener<ModuleType> listener) {
-        // does nothing because this provider does not change
+    private void notifyModuleTypesRemoved() {
+        for (ModuleType moduleType : getModuleTypesUnconditionally(null)) {
+            notifyListenersAboutRemovedElement(moduleType);
+        }
     }
 
     /**
@@ -145,17 +147,14 @@ public class ScriptModuleTypeProvider implements ModuleTypeProvider {
      */
     @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
     public void setScriptEngineFactory(ScriptEngineFactory engineFactory) {
-        List<String> scriptTypes = engineFactory.getScriptTypes();
-        if (!scriptTypes.isEmpty()) {
-            ScriptEngine scriptEngine = engineFactory.createScriptEngine(scriptTypes.get(0));
-            if (scriptEngine != null) {
-                parameterOptions.put(getPreferredMimeType(engineFactory), getLanguageName(scriptEngine.getFactory()));
-                logger.trace("ParameterOptions: {}", parameterOptions);
-            } else {
-                logger.trace("setScriptEngineFactory: engine was null");
+        Map.Entry<String, String> parameterOption = ScriptEngineFactoryHelper.getParameterOption(engineFactory);
+        if (parameterOption != null) {
+            boolean notifyListeners = parameterOptions.isEmpty();
+            parameterOptions.put(parameterOption.getKey(), parameterOption.getValue());
+            logger.trace("ParameterOptions: {}", parameterOptions);
+            if (notifyListeners) {
+                notifyModuleTypesAdded();
             }
-        } else {
-            logger.trace("addScriptEngineFactory: scriptTypes was empty");
         }
     }
 
@@ -164,25 +163,16 @@ public class ScriptModuleTypeProvider implements ModuleTypeProvider {
         if (!scriptTypes.isEmpty()) {
             ScriptEngine scriptEngine = engineFactory.createScriptEngine(scriptTypes.get(0));
             if (scriptEngine != null) {
-                parameterOptions.remove(getPreferredMimeType(engineFactory));
+                parameterOptions.remove(ScriptEngineFactoryHelper.getPreferredMimeType(engineFactory));
                 logger.trace("ParameterOptions: {}", parameterOptions);
+                if (parameterOptions.isEmpty()) {
+                    notifyModuleTypesRemoved();
+                }
             } else {
                 logger.trace("unsetScriptEngineFactory: engine was null");
             }
         } else {
             logger.trace("unsetScriptEngineFactory: scriptTypes was empty");
         }
-    }
-
-    private String getPreferredMimeType(ScriptEngineFactory factory) {
-        List<String> mimeTypes = new ArrayList<>(factory.getScriptTypes());
-        mimeTypes.removeIf(mimeType -> !mimeType.contains("application") || "application/python".equals(mimeType));
-        return mimeTypes.isEmpty() ? factory.getScriptTypes().get(0) : mimeTypes.get(0);
-    }
-
-    private String getLanguageName(javax.script.ScriptEngineFactory factory) {
-        return String.format("%s (%s)",
-                factory.getLanguageName().substring(0, 1).toUpperCase() + factory.getLanguageName().substring(1),
-                factory.getLanguageVersion());
     }
 }

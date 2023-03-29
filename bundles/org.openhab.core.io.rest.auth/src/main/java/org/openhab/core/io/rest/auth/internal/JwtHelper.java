@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -68,7 +68,7 @@ public class JwtHelper {
             jwtWebKey = loadOrGenerateKey();
         } catch (Exception e) {
             logger.error("Error while initializing the JWT helper", e);
-            throw new RuntimeException(e.getMessage());
+            throw new IllegalStateException(e.getMessage(), e);
         }
     }
 
@@ -128,12 +128,12 @@ public class JwtHelper {
 
             return jwt;
         } catch (JoseException e) {
-            throw new RuntimeException("Error while writing JWT token", e);
+            throw new IllegalStateException("Error while writing JWT token", e);
         }
     }
 
     /**
-     * Performs verifications on a JWT token, then parses it into a {@link AuthenticationException} instance
+     * Performs verifications on a JWT token, then parses it into an {@link AuthenticationException} instance
      *
      * @param jwt the base64-encoded JWT token from the request
      * @return the {@link Authentication} derived from the information in the token
@@ -143,7 +143,7 @@ public class JwtHelper {
         JwtConsumer jwtConsumer = new JwtConsumerBuilder().setRequireExpirationTime().setAllowedClockSkewInSeconds(30)
                 .setRequireSubject().setExpectedIssuer(ISSUER_NAME).setExpectedAudience(AUDIENCE)
                 .setVerificationKey(jwtWebKey.getKey())
-                .setJwsAlgorithmConstraints(ConstraintType.WHITELIST, AlgorithmIdentifiers.RSA_USING_SHA256).build();
+                .setJwsAlgorithmConstraints(ConstraintType.PERMIT, AlgorithmIdentifiers.RSA_USING_SHA256).build();
 
         try {
             JwtClaims jwtClaims = jwtConsumer.processToClaims(jwt);

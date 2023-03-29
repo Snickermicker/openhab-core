@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,11 +12,17 @@
  */
 package org.openhab.core.internal.service;
 
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.*;
 
+import java.util.List;
+
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.openhab.core.service.ReadyMarker;
 import org.openhab.core.service.ReadyMarkerFilter;
 import org.openhab.core.service.ReadyService.ReadyTracker;
@@ -25,6 +31,7 @@ import org.openhab.core.service.ReadyService.ReadyTracker;
  *
  * @author Simon Kaufmann - Initial contribution
  */
+@NonNullByDefault
 public class ReadyServiceImplTest {
 
     @Test
@@ -81,5 +88,18 @@ public class ReadyServiceImplTest {
         rs.unregisterTracker(tracker);
         verify(tracker).onReadyMarkerRemoved(isA(ReadyMarker.class));
         verifyNoMoreInteractions(tracker);
+    }
+
+    @Test
+    public void testReadyMarkerOrderPreserved() {
+        ReadyTracker tracker = mock(ReadyTracker.class);
+        ReadyServiceImpl rs = new ReadyServiceImpl();
+        List<ReadyMarker> markers = List.of(new ReadyMarker("foo", "c"), new ReadyMarker("foo", "1"),
+                new ReadyMarker("foo", "a"), new ReadyMarker("foo", "3"));
+        markers.forEach(rs::markReady);
+        rs.registerTracker(tracker, new ReadyMarkerFilter().withType("foo"));
+        ArgumentCaptor<ReadyMarker> captor = ArgumentCaptor.forClass(ReadyMarker.class);
+        verify(tracker, times(4)).onReadyMarkerAdded(captor.capture());
+        assertThat(captor.getAllValues(), Matchers.contains(markers.toArray(ReadyMarker[]::new)));
     }
 }

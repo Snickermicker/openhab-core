@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -215,7 +215,7 @@ public class AnnotatedThingActionModuleTypeProvider extends BaseModuleHandlerFac
     private String getThingUID(ThingActions annotatedThingActions) {
         ThingHandler handler = annotatedThingActions.getThingHandler();
         if (handler == null) {
-            throw new RuntimeException(
+            throw new IllegalStateException(
                     String.format("ThingHandler for '%s' is missing.", annotatedThingActions.getClass()));
         }
         return handler.getThing().getUID().getAsString();
@@ -235,6 +235,9 @@ public class AnnotatedThingActionModuleTypeProvider extends BaseModuleHandlerFac
                         true);
                 if (finalMI != null) {
                     ActionType moduleType = helper.buildModuleType(module.getTypeUID(), moduleInformation);
+                    if (moduleType == null) {
+                        return null;
+                    }
                     return new AnnotationActionHandler(actionModule, moduleType, finalMI.getMethod(),
                             finalMI.getActionProvider());
                 }

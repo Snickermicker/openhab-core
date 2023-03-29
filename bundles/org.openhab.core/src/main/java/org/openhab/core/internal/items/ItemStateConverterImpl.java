@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -110,7 +110,7 @@ public class ItemStateConverterImpl implements ItemStateConverter {
     }
 
     private State convertOrUndef(QuantityType<?> quantityState, Unit<?> targetUnit) {
-        QuantityType<?> converted = quantityState.toUnit(targetUnit);
+        QuantityType<?> converted = quantityState.toInvertibleUnit(targetUnit);
         if (converted != null) {
             return converted;
         }

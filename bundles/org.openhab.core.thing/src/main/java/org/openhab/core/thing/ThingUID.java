@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -91,7 +91,7 @@ public class ThingUID extends UID {
     }
 
     private static String[] getArray(String bindingId, String thingTypeId, String id, @Nullable String... bridgeIds) {
-        if (bridgeIds == null || bridgeIds.length == 0) {
+        if (bridgeIds.length == 0) {
             return new String[] { bindingId, thingTypeId, id };
         }
 

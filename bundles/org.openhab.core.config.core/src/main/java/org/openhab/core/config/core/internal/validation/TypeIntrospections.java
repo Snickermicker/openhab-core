@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -11,8 +11,6 @@
  * SPDX-License-Identifier: EPL-2.0
  */
 package org.openhab.core.config.core.internal.validation;
-
-import static java.util.Map.entry;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -27,9 +25,12 @@ import org.openhab.core.config.core.ConfigDescriptionParameter.Type;
  */
 final class TypeIntrospections {
 
-    private static final Map<Type, TypeIntrospection> INTROSPECTIONS = Map.ofEntries(
-            entry(Type.BOOLEAN, new BooleanIntrospection()), entry(Type.TEXT, new StringIntrospection()),
-            entry(Type.INTEGER, new IntegerIntrospection()), entry(Type.DECIMAL, new FloatIntrospection()));
+    private static final Map<Type, TypeIntrospection> INTROSPECTIONS = Map.of( //
+            Type.BOOLEAN, new BooleanIntrospection(), //
+            Type.TEXT, new StringIntrospection(), //
+            Type.INTEGER, new IntegerIntrospection(), //
+            Type.DECIMAL, new FloatIntrospection() //
+    );
 
     private TypeIntrospections() {
         super();
@@ -123,7 +124,18 @@ final class TypeIntrospections {
          * @return true, if the given value can be assigned to the type of this introspection, otherwise false
          */
         boolean isAssignable(Object value) {
-            return clazz.isAssignableFrom(value.getClass());
+            return clazz.isAssignableFrom(value.getClass()) || isStringInstance(value);
+        }
+
+        /**
+         * Returns true, if the given value is a string, otherwise false.
+         *
+         * @param value the value to be analyzed
+         *
+         * @return true, if the given value is a string, otherwise false
+         */
+        final boolean isStringInstance(Object value) {
+            return value instanceof String;
         }
 
         /**

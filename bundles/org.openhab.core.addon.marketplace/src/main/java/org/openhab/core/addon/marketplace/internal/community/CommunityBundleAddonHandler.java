@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -17,12 +17,14 @@ import static org.openhab.core.addon.marketplace.internal.community.CommunityMar
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
+import java.util.concurrent.ScheduledExecutorService;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.core.addon.Addon;
 import org.openhab.core.addon.marketplace.MarketplaceAddonHandler;
 import org.openhab.core.addon.marketplace.MarketplaceBundleInstaller;
 import org.openhab.core.addon.marketplace.MarketplaceHandlerException;
+import org.openhab.core.common.ThreadPoolManager;
 import org.osgi.framework.BundleContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -44,12 +46,18 @@ public class CommunityBundleAddonHandler extends MarketplaceBundleInstaller impl
             "transformation", "ui", "voice");
     private static final String JAR_DOWNLOAD_URL_PROPERTY = "jar_download_url";
 
+    private final ScheduledExecutorService scheduler = ThreadPoolManager
+            .getScheduledPool(ThreadPoolManager.THREAD_POOL_NAME_COMMON);
     private final BundleContext bundleContext;
+    private boolean isReady = false;
 
     @Activate
     public CommunityBundleAddonHandler(BundleContext bundleContext) {
         this.bundleContext = bundleContext;
-        ensureCachedBundlesAreInstalled(bundleContext);
+        scheduler.execute(() -> {
+            ensureCachedBundlesAreInstalled(bundleContext);
+            isReady = true;
+        });
     }
 
     @Override
@@ -67,8 +75,8 @@ public class CommunityBundleAddonHandler extends MarketplaceBundleInstaller impl
     public void install(Addon addon) throws MarketplaceHandlerException {
         try {
             URL sourceUrl = new URL((String) addon.getProperties().get(JAR_DOWNLOAD_URL_PROPERTY));
-            addBundleToCache(addon.getId(), sourceUrl);
-            installFromCache(bundleContext, addon.getId());
+            addBundleToCache(addon.getUid(), sourceUrl);
+            installFromCache(bundleContext, addon.getUid());
         } catch (MalformedURLException e) {
             throw new MarketplaceHandlerException("Malformed source URL: " + e.getMessage(), e);
         }
@@ -76,6 +84,11 @@ public class CommunityBundleAddonHandler extends MarketplaceBundleInstaller impl
 
     @Override
     public void uninstall(Addon addon) throws MarketplaceHandlerException {
-        uninstallBundle(bundleContext, addon.getId());
+        uninstallBundle(bundleContext, addon.getUid());
+    }
+
+    @Override
+    public boolean isReady() {
+        return isReady;
     }
 }

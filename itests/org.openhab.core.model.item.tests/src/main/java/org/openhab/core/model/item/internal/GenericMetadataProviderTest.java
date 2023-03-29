@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -16,12 +16,14 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.Collection;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.Test;
 import org.openhab.core.items.Metadata;
 
 /**
  * @author Simon Kaufmann - Initial contribution
  */
+@NonNullByDefault
 public class GenericMetadataProviderTest {
 
     @Test
@@ -44,18 +46,30 @@ public class GenericMetadataProviderTest {
     @Test
     public void testRemoveMetadataNonExistentItem() {
         GenericMetadataProvider provider = new GenericMetadataProvider();
-        provider.removeMetadata("nonExistentItem");
+        provider.removeMetadataByItemName("nonExistentItem");
     }
 
     @Test
-    public void testRemoveMetadata() {
+    public void testRemoveMetadataByItemName() {
         GenericMetadataProvider provider = new GenericMetadataProvider();
         provider.addMetadata("other", "item", "value", null);
         provider.addMetadata("binding", "item", "value", null);
         provider.addMetadata("binding", "other", "value", null);
         assertEquals(3, provider.getAll().size());
 
-        provider.removeMetadata("item");
+        provider.removeMetadataByItemName("item");
+        assertEquals(1, provider.getAll().size());
+    }
+
+    @Test
+    public void testRemoveMetadataByNamespace() {
+        GenericMetadataProvider provider = new GenericMetadataProvider();
+        provider.addMetadata("other", "item", "value", null);
+        provider.addMetadata("binding", "item", "value", null);
+        provider.addMetadata("binding", "other", "value", null);
+        assertEquals(3, provider.getAll().size());
+
+        provider.removeMetadataByNamespace("binding");
         assertEquals(1, provider.getAll().size());
     }
 }

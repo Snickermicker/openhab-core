@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,6 +12,7 @@
  */
 package org.openhab.core.thing.link;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -134,7 +135,7 @@ public abstract class AbstractLinkRegistry<L extends AbstractLink, P extends Pro
             if (forItemName == null || forLinkedUID == null) {
                 return false;
             } else {
-                return forItemName.parallelStream().anyMatch(forLinkedUID::contains);
+                return !Collections.disjoint(forItemName, forLinkedUID);
             }
         } finally {
             toLinkLock.readLock().unlock();
@@ -184,7 +185,7 @@ public abstract class AbstractLinkRegistry<L extends AbstractLink, P extends Pro
             if (forLinkedUID == null) {
                 return Set.of();
             }
-            return forLinkedUID.parallelStream().map(link -> link.getItemName()).collect(Collectors.toSet());
+            return forLinkedUID.stream().map(link -> link.getItemName()).collect(Collectors.toSet());
         } finally {
             toLinkLock.readLock().unlock();
         }

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -13,6 +13,7 @@
 package org.openhab.core.config.discovery.inbox;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -55,9 +56,10 @@ public interface Inbox {
      * This method returns silently, if the specified {@link DiscoveryResult} is {@code null}.
      *
      * @param result the discovery result to be added to this inbox (could be null)
-     * @return true if the specified discovery result could be added or updated, otherwise false
+     * @return {@link CompletableFuture} future that completes to <code>true</code> if the specified discovery result
+     *         could be added or updated, otherwise to <code>false</code>
      */
-    boolean add(@Nullable DiscoveryResult result);
+    CompletableFuture<Boolean> add(@Nullable DiscoveryResult result);
 
     /**
      * Removes the {@link DiscoveryResult} associated with the specified {@code Thing} ID from

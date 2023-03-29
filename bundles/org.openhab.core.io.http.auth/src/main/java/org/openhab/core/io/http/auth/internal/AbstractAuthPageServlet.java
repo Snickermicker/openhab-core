@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -39,7 +39,6 @@ import org.openhab.core.auth.UsernamePasswordCredentials;
 import org.openhab.core.i18n.LocaleProvider;
 import org.osgi.framework.BundleContext;
 import org.osgi.service.component.annotations.Reference;
-import org.osgi.service.http.HttpService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,7 +57,6 @@ public abstract class AbstractAuthPageServlet extends HttpServlet {
 
     private final Logger logger = LoggerFactory.getLogger(AbstractAuthPageServlet.class);
 
-    protected HttpService httpService;
     protected UserRegistry userRegistry;
     protected AuthenticationProvider authProvider;
     protected LocaleProvider localeProvider;
@@ -69,10 +67,8 @@ public abstract class AbstractAuthPageServlet extends HttpServlet {
 
     protected String pageTemplate;
 
-    public AbstractAuthPageServlet(BundleContext bundleContext, @Reference HttpService httpService,
-            @Reference UserRegistry userRegistry, @Reference AuthenticationProvider authProvider,
-            @Reference LocaleProvider localeProvider) {
-        this.httpService = httpService;
+    public AbstractAuthPageServlet(BundleContext bundleContext, @Reference UserRegistry userRegistry,
+            @Reference AuthenticationProvider authProvider, @Reference LocaleProvider localeProvider) {
         this.userRegistry = userRegistry;
         this.authProvider = authProvider;
         this.localeProvider = localeProvider;
@@ -142,12 +138,12 @@ public abstract class AbstractAuthPageServlet extends HttpServlet {
         return user;
     }
 
-    protected void processFailedLogin(HttpServletResponse resp, Map<String, String[]> params, @Nullable String message)
-            throws IOException {
+    protected void processFailedLogin(HttpServletResponse resp, String remoteAddr, Map<String, String[]> params,
+            @Nullable String message) throws IOException {
         lastAuthenticationFailure = Instant.now();
         authenticationFailureCount += 1;
         resp.setContentType("text/html;charset=UTF-8");
-        logger.warn("Authentication failed: {}", message);
+        logger.warn("Authentication failed from {}: {}", remoteAddr, message);
         resp.getWriter().append(getPageBody(params, getLocalizedMessage("auth.login.fail"), false));
         resp.getWriter().close();
     }

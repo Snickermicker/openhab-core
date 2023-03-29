@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -174,7 +174,7 @@ public class ConfigUtil {
      * @param value the value to return as normalized type
      * @param configDescriptionParameter the parameter that needs to be normalized
      * @return corresponding value as a valid type
-     * @throws IllegalArgumentException if a invalid type has been given
+     * @throws IllegalArgumentException if an invalid type has been given
      */
     public static Object normalizeType(Object value, @Nullable ConfigDescriptionParameter configDescriptionParameter) {
         if (configDescriptionParameter != null) {
@@ -206,16 +206,12 @@ public class ConfigUtil {
      * @param configuration the configuration to be normalized
      * @param configDescriptions the configuration descriptions that should be applied (must not be empty).
      * @return the normalized configuration or null if given configuration was null
-     * @throws IllegalArgumentExcetpion if given config description is null
+     * @throws IllegalArgumentException if given config description is null
      */
-    public static @Nullable Map<String, Object> normalizeTypes(@Nullable Map<String, Object> configuration,
+    public static Map<String, Object> normalizeTypes(Map<String, Object> configuration,
             List<ConfigDescription> configDescriptions) {
         if (configDescriptions.isEmpty()) {
             throw new IllegalArgumentException("Config description must not be empty.");
-        }
-
-        if (configuration == null) {
-            return null;
         }
 
         Map<String, Object> convertedConfiguration = new HashMap<>();

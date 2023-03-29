@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -18,10 +18,10 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.security.AccessController;
-import java.security.PrivilegedActionException;
-import java.security.PrivilegedExceptionAction;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 import java.util.Base64;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -46,6 +46,7 @@ import org.slf4j.LoggerFactory;
 import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonSyntaxException;
 
 /**
@@ -68,7 +69,15 @@ public class OAuthConnector {
 
     public OAuthConnector(HttpClientFactory httpClientFactory, @Nullable String deserializerClassName) {
         this.httpClientFactory = httpClientFactory;
-        GsonBuilder gsonBuilder = new GsonBuilder().setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES);
+        GsonBuilder gsonBuilder = new GsonBuilder().setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
+                .registerTypeAdapter(Instant.class, (JsonDeserializer<Instant>) (json, typeOfT, context) -> {
+                    try {
+                        return Instant.parse(json.getAsString());
+                    } catch (DateTimeParseException e) {
+                        return LocalDateTime.parse(json.getAsString()).atZone(ZoneId.systemDefault()).toInstant();
+                    }
+                });
+
         if (deserializerClassName != null) {
             try {
                 Class<?> deserializerClass = Class.forName(deserializerClassName);
@@ -137,7 +146,7 @@ public class OAuthConnector {
      * @return Access Token
      * @throws IOException IO/ network exceptions
      * @throws OAuthException Other exceptions
-     * @throws OAuthErrorException Error codes given by authorization provider, as in RFC 6749 section 5.2 Error
+     * @throws OAuthResponseException Error codes given by authorization provider, as in RFC 6749 section 5.2 Error
      *             Response
      */
     public AccessTokenResponse grantTypePassword(String tokenUrl, String username, String password,
@@ -171,7 +180,7 @@ public class OAuthConnector {
      * @return Access Token
      * @throws IOException IO/ network exceptions
      * @throws OAuthException Other exceptions
-     * @throws OAuthErrorException Error codes given by authorization provider, as in RFC 6749 section 5.2 Error
+     * @throws OAuthResponseException Error codes given by authorization provider, as in RFC 6749 section 5.2 Error
      *             Response
      */
     public AccessTokenResponse grantTypeRefreshToken(String tokenUrl, String refreshToken, @Nullable String clientId,
@@ -206,7 +215,7 @@ public class OAuthConnector {
      * @return Access Token
      * @throws IOException IO/ network exceptions
      * @throws OAuthException Other exceptions
-     * @throws OAuthErrorException Error codes given by authorization provider, as in RFC 6749 section 5.2 Error
+     * @throws OAuthResponseException Error codes given by authorization provider, as in RFC 6749 section 5.2 Error
      *             Response
      */
     public AccessTokenResponse grantTypeAuthorizationCode(String tokenUrl, String authorizationCode, String clientId,
@@ -240,7 +249,7 @@ public class OAuthConnector {
      * @return Access Token
      * @throws IOException IO/ network exceptions
      * @throws OAuthException Other exceptions
-     * @throws OAuthErrorException Error codes given by authorization provider, as in RFC 6749 section 5.2 Error
+     * @throws OAuthResponseException Error codes given by authorization provider, as in RFC 6749 section 5.2 Error
      *             Response
      */
     public AccessTokenResponse grantTypeClientCredentials(String tokenUrl, String clientId,
@@ -301,18 +310,15 @@ public class OAuthConnector {
         String content = "";
         try {
             final FormContentProvider entity = new FormContentProvider(fields);
-            final ContentResponse response = AccessController
-                    .doPrivileged((PrivilegedExceptionAction<ContentResponse>) () -> {
-                        Request requestWithContent = request.content(entity);
-                        return requestWithContent.send();
-                    });
+            Request requestWithContent = request.content(entity);
+            final ContentResponse response = requestWithContent.send();
 
             statusCode = response.getStatus();
             content = response.getContentAsString();
 
             if (statusCode == HttpStatus.OK_200) {
                 AccessTokenResponse jsonResponse = gson.fromJson(content, AccessTokenResponse.class);
-                jsonResponse.setCreatedOn(LocalDateTime.now()); // this is not supplied by the response
+                jsonResponse.setCreatedOn(Instant.now()); // this is not supplied by the response
                 logger.debug("grant type {} to URL {} success", grantType, request.getURI());
                 return jsonResponse;
             } else if (statusCode == HttpStatus.BAD_REQUEST_400) {
@@ -326,18 +332,15 @@ public class OAuthConnector {
                         statusCode);
                 throw new OAuthException("Bad http response, http code " + statusCode);
             }
-        } catch (PrivilegedActionException pae) {
-            Exception underlyingException = pae.getException();
-            if (underlyingException instanceof InterruptedException || underlyingException instanceof TimeoutException
-                    || underlyingException instanceof ExecutionException) {
-                throw new IOException("Exception in oauth communication, grant type " + grantType, underlyingException);
-            }
-            // Dont know what exception it is, wrap it up and throw it out
-            throw new OAuthException("Exception in oauth communication, grant type " + grantType, underlyingException);
+        } catch (InterruptedException | TimeoutException | ExecutionException e) {
+            throw new IOException("Exception in oauth communication, grant type " + grantType, e);
         } catch (JsonSyntaxException e) {
             throw new OAuthException(String.format(
-                    "Unable to deserialize json into AccessTokenResponse/ OAuthResponseException. httpCode: %i json: %s",
+                    "Unable to deserialize json into AccessTokenResponse/ OAuthResponseException. httpCode: %d json: %s",
                     statusCode, content), e);
+        } catch (Exception e) {
+            // Dont know what exception it is, wrap it up and throw it out
+            throw new OAuthException("Exception in oauth communication, grant type " + grantType, e);
         }
     }
 
@@ -356,10 +359,7 @@ public class OAuthConnector {
         HttpClient httpClient = httpClientFactory.createHttpClient(HTTP_CLIENT_CONSUMER_NAME);
         if (!httpClient.isStarted()) {
             try {
-                AccessController.doPrivileged((PrivilegedExceptionAction<@Nullable Void>) () -> {
-                    httpClient.start();
-                    return null;
-                });
+                httpClient.start();
             } catch (Exception e) {
                 throw new OAuthException("Exception while starting httpClient, tokenUrl: " + tokenUrl, e);
             }
@@ -370,10 +370,7 @@ public class OAuthConnector {
     private void shutdownQuietly(@Nullable HttpClient httpClient) {
         try {
             if (httpClient != null) {
-                AccessController.doPrivileged((PrivilegedExceptionAction<@Nullable Void>) () -> {
-                    httpClient.stop();
-                    return null;
-                });
+                httpClient.stop();
             }
         } catch (Exception e) {
             // there is nothing we can do here

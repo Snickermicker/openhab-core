@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -19,9 +19,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.*;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
@@ -58,8 +58,8 @@ import org.openhab.core.library.items.StringItem;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.StringType;
 import org.openhab.core.service.ReadyMarker;
-import org.openhab.core.service.ReadyMarkerUtils;
 import org.openhab.core.service.ReadyService;
+import org.openhab.core.service.StartLevelService;
 import org.openhab.core.test.java.JavaOSGiTest;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ChannelUID;
@@ -100,9 +100,6 @@ import org.openhab.core.thing.type.ThingTypeBuilder;
 import org.openhab.core.thing.type.ThingTypeRegistry;
 import org.openhab.core.types.Command;
 import org.openhab.core.util.BundleResolver;
-import org.osgi.framework.Bundle;
-import org.osgi.framework.FrameworkUtil;
-import org.osgi.framework.InvalidSyntaxException;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 
@@ -113,31 +110,43 @@ import org.osgi.service.component.ComponentContext;
  * @author Wouter Born - Migrate tests from Groovy to Java
  * @author Björn Lange - Ignore illegal thing status transitions instead of throwing IllegalArgumentException
  */
+@NonNullByDefault
 public class ThingManagerOSGiTest extends JavaOSGiTest {
 
+    private static final URI THING_CONFIG_URI = URI.create("test:test");
     private static final ThingTypeUID THING_TYPE_UID = new ThingTypeUID("binding:type");
     private static final ThingUID THING_UID = new ThingUID(THING_TYPE_UID, "id");
     private static final ChannelUID CHANNEL_UID = new ChannelUID(THING_UID, "channel");
     private static final ChannelTypeUID CHANNEL_TYPE_UID = new ChannelTypeUID("binding:channelType");
 
-    private ChannelTypeProvider channelTypeProvider;
-    private EventPublisher eventPublisher;
-    private ItemChannelLinkRegistry itemChannelLinkRegistry;
-    private ItemRegistry itemRegistry;
-    private ManagedItemChannelLinkProvider managedItemChannelLinkProvider;
-    private ManagedThingProvider managedThingProvider;
-    private ReadyService readyService;
-    private Thing thing;
+    private @NonNullByDefault({}) ChannelTypeProvider channelTypeProvider;
+    private @NonNullByDefault({}) ConfigurationAdmin configurationAdmin;
+    private @NonNullByDefault({}) EventPublisher eventPublisher;
+    private @NonNullByDefault({}) ItemChannelLinkRegistry itemChannelLinkRegistry;
+    private @NonNullByDefault({}) ItemRegistry itemRegistry;
+    private @NonNullByDefault({}) ManagedItemChannelLinkProvider managedItemChannelLinkProvider;
+    private @NonNullByDefault({}) ManagedThingProvider managedThingProvider;
+    private @NonNullByDefault({}) ReadyService readyService;
+    private @NonNullByDefault({}) Thing thing;
 
     @BeforeEach
     @SuppressWarnings("null")
-    public void setUp() {
+    public void setUp() throws IOException {
         thing = ThingBuilder.create(THING_TYPE_UID, THING_UID)
                 .withChannels(ChannelBuilder.create(CHANNEL_UID, CoreItemFactory.SWITCH).withKind(ChannelKind.STATE)
                         .withType(CHANNEL_TYPE_UID).build())
                 .build();
 
         registerVolatileStorageService();
+
+        configurationAdmin = getService(ConfigurationAdmin.class);
+        assertNotNull(configurationAdmin);
+
+        LocaleProvider localeProvider = getService(LocaleProvider.class);
+        assertThat(localeProvider, is(notNullValue()));
+
+        new DefaultLocaleSetter(configurationAdmin).setDefaultLocale(Locale.ENGLISH);
+        waitForAssert(() -> assertThat(localeProvider.getLocale(), is(Locale.ENGLISH)));
 
         channelTypeProvider = mock(ChannelTypeProvider.class);
         when(channelTypeProvider.getChannelType(any(ChannelTypeUID.class), nullable(Locale.class)))
@@ -157,27 +166,8 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         readyService = getService(ReadyService.class);
         assertNotNull(readyService);
 
-        waitForAssert(() -> {
-            try {
-                assertThat(
-                        bundleContext
-                                .getServiceReferences(ReadyMarker.class,
-                                        "(" + ThingManagerImpl.XML_THING_TYPE + "="
-                                                + bundleContext.getBundle().getSymbolicName() + ")"),
-                        is(notNullValue()));
-            } catch (InvalidSyntaxException e) {
-                fail("Failed to get service reference: " + e.getMessage());
-            }
-        });
-
-        Bundle bundle = mock(Bundle.class);
-        when(bundle.getSymbolicName()).thenReturn("org.openhab.core.thing");
-
-        BundleResolver bundleResolver = mock(BundleResolver.class);
-        when(bundleResolver.resolveBundle(any())).thenReturn(bundle);
-
         ThingManagerImpl thingManager = (ThingManagerImpl) getService(ThingTypeMigrationService.class);
-        thingManager.setBundleResolver(bundleResolver);
+        assertNotNull(thingManager);
     }
 
     @AfterEach
@@ -185,6 +175,33 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         managedThingProvider.getAll().forEach(t -> managedThingProvider.remove(t.getUID()));
         ComponentContext componentContext = mock(ComponentContext.class);
         when(componentContext.getProperties()).thenReturn(new Hashtable<>());
+    }
+
+    @Test
+    public void thingManagerHonorsMissingPrerequisite() {
+        // set ready marker, otherwise check job is not running
+        ThingManagerImpl thingManager = (ThingManagerImpl) getService(ThingManager.class);
+        thingManager.onReadyMarkerAdded(new ReadyMarker(StartLevelService.STARTLEVEL_MARKER_TYPE,
+                Integer.toString(StartLevelService.STARTLEVEL_MODEL)));
+
+        ThingHandler thingHandler = mock(ThingHandler.class);
+        when(thingHandler.getThing()).thenReturn(thing);
+
+        ThingHandlerFactory thingHandlerFactory = mock(ThingHandlerFactory.class);
+        when(thingHandlerFactory.supportsThingType(any(ThingTypeUID.class))).thenReturn(true);
+        when(thingHandlerFactory.registerHandler(any(Thing.class))).thenReturn(thingHandler);
+
+        registerService(thingHandlerFactory);
+
+        managedThingProvider.add(thing);
+
+        assertThat(thing.getStatus(), is(ThingStatus.UNINITIALIZED));
+        assertThat(thing.getStatusInfo().getStatusDetail(), is(ThingStatusDetail.NOT_YET_READY));
+
+        registerThingTypeProvider();
+        registerConfigDescriptionProvider(false);
+
+        waitForAssert(() -> assertThat(thing.getStatus(), is(ThingStatus.INITIALIZING)));
     }
 
     @Test
@@ -219,6 +236,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
     @Test
     public void thingManagerChangesTheThingTypeCorrectlyEvenIfInitializeTakesLongAndCalledFromThere() {
         registerThingTypeProvider();
+        registerConfigDescriptionProvider(false);
 
         ThingTypeUID newThingTypeUID = new ThingTypeUID("binding:type2");
 
@@ -226,6 +244,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
             boolean initializeRunning;
             boolean raceCondition;
             boolean migrateBlocked;
+            @Nullable
             ThingHandlerCallback callback;
         }
 
@@ -235,7 +254,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 state.callback = (ThingHandlerCallback) invocation.getArgument(0);
                 return null;
             }
@@ -243,7 +262,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 if (state.initializeRunning) {
                     state.raceCondition = true;
                 }
@@ -304,6 +323,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
     @Test
     public void thingManagerWaitsWithThingUpdatedUntilInitializeReturned() {
         registerThingTypeProvider();
+        registerConfigDescriptionProvider(false);
 
         Thing thing2 = ThingBuilder.create(THING_TYPE_UID, THING_UID)
                 .withChannels(List.of(ChannelBuilder.create(CHANNEL_UID, CoreItemFactory.SWITCH).build())).build();
@@ -320,7 +340,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 state.initializeRunning = true;
                 Thread.sleep(3000);
                 state.initializeRunning = false;
@@ -332,7 +352,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 state.thingUpdatedCalled = true;
                 if (state.initializeRunning) {
                     state.raceCondition = true;
@@ -366,6 +386,8 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         when(thingHandlerFactory.registerHandler(any(Thing.class))).thenReturn(thingHandler);
 
         registerService(thingHandlerFactory);
+        registerThingTypeProvider();
+        registerConfigDescriptionProvider(false);
 
         managedThingProvider.add(thing);
 
@@ -382,6 +404,8 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         when(thingHandlerFactory.registerHandler(any(Thing.class))).thenReturn(thingHandler);
 
         registerService(thingHandlerFactory);
+        registerThingTypeProvider();
+        registerConfigDescriptionProvider(false);
 
         managedThingProvider.add(thing);
         managedThingProvider.remove(thing.getUID());
@@ -393,6 +417,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
     @Test
     public void thingManagerHandlesThingHandlerLifecycleCorrectly() {
         class ThingHandlerState {
+            @Nullable
             ThingHandlerCallback callback = null;
         }
 
@@ -402,7 +427,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 state.callback = (ThingHandlerCallback) invocation.getArgument(0);
                 return null;
             }
@@ -410,7 +435,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 state.callback.statusUpdated(thing, ThingStatusInfoBuilder.create(ThingStatus.ONLINE).build());
                 return null;
             }
@@ -427,6 +452,9 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         final ThingStatusInfo uninitializedNone = ThingStatusInfoBuilder
                 .create(ThingStatus.UNINITIALIZED, ThingStatusDetail.NONE).build();
         assertThat(thing.getStatusInfo(), is(uninitializedNone));
+
+        registerThingTypeProvider();
+        registerConfigDescriptionProvider(false);
 
         // add thing - provokes handler registration & initialization
         managedThingProvider.add(thing);
@@ -463,6 +491,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
     @Test
     public void thingManagerHandlesFailingHandlerInitializationCorrectly() {
         class ThingHandlerState {
+            @Nullable
             ThingHandlerCallback callback = null;
         }
 
@@ -475,7 +504,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 state.callback = (ThingHandlerCallback) invocation.getArgument(0);
                 return null;
             }
@@ -483,7 +512,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 Boolean shouldFail = (Boolean) testThing.getConfiguration().get("shouldFail");
                 if (shouldFail) {
                     throw new IllegalStateException("Invalid config!");
@@ -505,6 +534,9 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         final ThingStatusInfo uninitializedNone = ThingStatusInfoBuilder
                 .create(ThingStatus.UNINITIALIZED, ThingStatusDetail.NONE).build();
         assertThat(testThing.getStatusInfo(), is(uninitializedNone));
+
+        registerThingTypeProvider();
+        registerConfigDescriptionProvider(false);
 
         managedThingProvider.add(testThing);
         final ThingStatusInfo uninitializedError = ThingStatusInfoBuilder
@@ -530,6 +562,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
             int initCalledOrder;
             boolean disposedCalled;
             int disposedCalledOrder;
+            @Nullable
             ThingHandlerCallback callback;
             boolean callbackWasNull;
         }
@@ -542,7 +575,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 bridgeState.callback = (ThingHandlerCallback) invocation.getArgument(0);
                 return null;
             }
@@ -550,7 +583,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 bridgeState.initCalled = true;
                 bridgeState.initCalledOrder = ++initCalledCounter;
                 bridgeState.callback.statusUpdated(bridge,
@@ -561,7 +594,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 bridgeState.disposedCalled = true;
                 bridgeState.disposedCalledOrder = ++disposedCalledCounter;
                 bridgeState.callbackWasNull = bridgeState.callback == null;
@@ -573,7 +606,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 bridgeState.callback.statusUpdated(bridge, ThingStatusInfoBuilder.create(ThingStatus.REMOVED).build());
                 return null;
             }
@@ -584,6 +617,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
             int initCalledOrder;
             boolean disposedCalled;
             int disposedCalledOrder;
+            @Nullable
             ThingHandlerCallback callback;
             boolean callbackWasNull;
         }
@@ -596,7 +630,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 thingState.callback = (ThingHandlerCallback) invocation.getArgument(0);
                 return null;
             }
@@ -604,7 +638,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 thingState.initCalled = true;
                 thingState.initCalledOrder = ++initCalledCounter;
                 bridgeState.callback.statusUpdated(thing,
@@ -615,7 +649,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 thingState.disposedCalled = true;
                 thingState.disposedCalledOrder = ++disposedCalledCounter;
                 thingState.callbackWasNull = thingState.callback == null;
@@ -627,7 +661,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 bridgeState.callback.statusUpdated(thing, ThingStatusInfoBuilder.create(ThingStatus.REMOVED).build());
                 return null;
             }
@@ -637,7 +671,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         when(thingHandlerFactory.supportsThingType(any(ThingTypeUID.class))).thenReturn(true);
         doAnswer(new Answer<ThingHandler>() {
             @Override
-            public ThingHandler answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable ThingHandler answer(InvocationOnMock invocation) throws Throwable {
                 Thing thing = (Thing) invocation.getArgument(0);
                 if (thing instanceof Bridge) {
                     return bridgeHandler;
@@ -666,6 +700,9 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         ThingRegistry thingRegistry = getService(ThingRegistry.class);
         assertThat(thingRegistry, not(nullValue()));
+
+        registerThingTypeProvider();
+        registerConfigDescriptionProvider(false);
 
         // add thing - no thing initialization, because bridge is not available
         thingRegistry.add(thing);
@@ -750,9 +787,11 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
     @Test
     public void thingManagerDoesNotDelegateUpdateEventsToItsSource() {
         registerThingTypeProvider();
+        registerConfigDescriptionProvider(false);
 
         class ThingHandlerState {
             boolean handleCommandWasCalled;
+            @Nullable
             ThingHandlerCallback callback;
         }
 
@@ -762,7 +801,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 state.callback = (ThingHandlerCallback) invocation.getArgument(0);
                 return null;
             }
@@ -770,7 +809,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 state.handleCommandWasCalled = true;
                 state.callback.statusUpdated(thing, ThingStatusInfoBuilder.create(ThingStatus.ONLINE).build());
                 return null;
@@ -786,6 +825,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         String itemName = "name";
         managedThingProvider.add(thing);
         managedItemChannelLinkProvider.add(new ItemChannelLink(itemName, CHANNEL_UID));
+        waitForAssert(() -> assertThat(itemChannelLinkRegistry.getLinks(itemName).size(), is(1)));
 
         registerService(thingHandlerFactory);
         Item item = new StringItem(itemName);
@@ -810,9 +850,11 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
     @Test
     public void thingManagerHandlesStateUpdatesCorrectly() {
         registerThingTypeProvider();
+        registerConfigDescriptionProvider(false);
 
         class ThingHandlerState {
             boolean thingUpdatedWasCalled;
+            @Nullable
             ThingHandlerCallback callback;
         }
 
@@ -822,7 +864,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 state.callback = (ThingHandlerCallback) invocation.getArgument(0);
                 return null;
             }
@@ -830,7 +872,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 state.thingUpdatedWasCalled = true;
                 return null;
             }
@@ -851,12 +893,12 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         managedThingProvider.add(thing);
         managedItemChannelLinkProvider.add(new ItemChannelLink(itemName, CHANNEL_UID));
+        waitForAssert(() -> assertThat(itemChannelLinkRegistry.getLinks(itemName).size(), is(1)));
 
         state.callback.statusUpdated(thing, ThingStatusInfoBuilder.create(ThingStatus.ONLINE).build());
 
         final List<Event> receivedEvents = new ArrayList<>();
 
-        @NonNullByDefault
         EventSubscriber itemUpdateEventSubscriber = new EventSubscriber() {
             @Override
             public void receive(Event event) {
@@ -907,8 +949,12 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
     @Test
     public void thingManagerHandlesThingStatusUpdatesOnlineAndOfflineCorrectly() {
         class ThingHandlerState {
+            @Nullable
             ThingHandlerCallback callback;
         }
+
+        registerThingTypeProvider();
+        registerConfigDescriptionProvider(false);
 
         final ThingHandlerState state = new ThingHandlerState();
 
@@ -918,7 +964,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 state.callback = (ThingHandlerCallback) invocation.getArgument(0);
                 return null;
             }
@@ -970,20 +1016,23 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
     }
 
     @Test
-    public void thingManagerIgnoresRestoringOfThingStatusFromRemoving() {
+    public void thingManagerIgnoresRestoringOfThingStatusFromRemoving() throws Exception {
         class ThingHandlerState {
+            @Nullable
             ThingHandlerCallback callback;
         }
 
         final ThingHandlerState state = new ThingHandlerState();
 
         ThingHandler thingHandler = mock(ThingHandler.class);
+        registerThingTypeProvider();
+        registerConfigDescriptionProvider(false);
 
         managedThingProvider.add(thing);
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 state.callback = (ThingHandlerCallback) invocation.getArgument(0);
                 return null;
             }
@@ -1006,6 +1055,10 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         state.callback.statusUpdated(thing, onlineNone);
 
         assertThat(thing.getStatusInfo(), is(removingNone));
+
+        // handleRemoval is called asynchronously when thing is fully initialized and shall be removed
+        Thread.sleep(500);
+        verify(thingHandler).handleRemoval();
     }
 
     private void expectException(Runnable runnable, Class<? extends Exception> exceptionType) {
@@ -1022,6 +1075,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
     @Test
     public void thingManagerHandlesThingStatusUpdatesUninitializedAndInitializingCorrectly() {
         registerThingTypeProvider();
+        registerConfigDescriptionProvider(false);
 
         ThingHandler thingHandler = mock(ThingHandler.class);
         when(thingHandler.getThing()).thenReturn(thing);
@@ -1050,6 +1104,31 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
     }
 
     @Test
+    public void thingManagerHandlesThingStatusUpdatesRemovingAndInitializingCorrectly() {
+        registerThingTypeProvider();
+        registerConfigDescriptionProvider(false);
+
+        ThingHandler thingHandler = mock(ThingHandler.class);
+        when(thingHandler.getThing()).thenReturn(thing);
+
+        ThingHandlerFactory thingHandlerFactory = mock(ThingHandlerFactory.class);
+        when(thingHandlerFactory.supportsThingType(any(ThingTypeUID.class))).thenReturn(true);
+        when(thingHandlerFactory.registerHandler(any(Thing.class))).thenReturn(thingHandler);
+
+        registerService(thingHandlerFactory);
+
+        final ThingStatusInfo removingNone = ThingStatusInfoBuilder.create(ThingStatus.REMOVING, ThingStatusDetail.NONE)
+                .build();
+        thing.setStatusInfo(removingNone);
+
+        managedThingProvider.add(thing);
+
+        // verify thing handler initialize is called but thing state stays in REMOVING
+        verify(thingHandler).initialize();
+        assertThat(thing.getStatusInfo(), is(removingNone));
+    }
+
+    @Test
     public void thingManagerHandlesThingStatusUpdateUninitializedWithAnExceptionCorrectly() {
         String exceptionMessage = "Some runtime exception occurred!";
 
@@ -1061,6 +1140,8 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         when(thingHandlerFactory.registerHandler(any(Thing.class))).thenThrow(new RuntimeException(exceptionMessage));
 
         registerService(thingHandlerFactory);
+        registerThingTypeProvider();
+        registerConfigDescriptionProvider(false);
 
         managedThingProvider.add(thing);
 
@@ -1074,11 +1155,15 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
     @SuppressWarnings({ "null", "unchecked" })
     public void thingManagerHandlesThingUpdatesCorrectly() {
         String itemName = "name";
+        registerThingTypeProvider();
+        registerConfigDescriptionProvider(false);
 
         managedThingProvider.add(thing);
         managedItemChannelLinkProvider.add(new ItemChannelLink(itemName, CHANNEL_UID));
+        waitForAssert(() -> assertThat(itemChannelLinkRegistry.getLinks(itemName).size(), is(1)));
 
         class ThingHandlerState {
+            @Nullable
             ThingHandlerCallback callback;
         }
 
@@ -1088,7 +1173,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 state.callback = (ThingHandlerCallback) invocation.getArgument(0);
                 return null;
             }
@@ -1144,8 +1229,10 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
     @Test
     public void thingManagerPostsThingStatusEventsIfTheStatusOfAThingIsUpdated() {
         registerThingTypeProvider();
+        registerConfigDescriptionProvider(false);
 
         class ThingHandlerState {
+            @Nullable
             ThingHandlerCallback callback;
         }
         final ThingHandlerState state = new ThingHandlerState();
@@ -1153,7 +1240,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         ThingHandler thingHandler = mock(ThingHandler.class);
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 state.callback = (ThingHandlerCallback) invocation.getArgument(0);
                 return null;
             }
@@ -1168,16 +1255,10 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         final List<Event> receivedEvents = new ArrayList<>();
 
-        @NonNullByDefault
         EventSubscriber thingStatusEventSubscriber = new EventSubscriber() {
             @Override
             public Set<String> getSubscribedEventTypes() {
                 return Set.of(ThingStatusInfoEvent.TYPE);
-            }
-
-            @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
             }
 
             @Override
@@ -1188,16 +1269,18 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         registerService(thingStatusEventSubscriber);
 
-        // set status to INITIALIZING
+        // set status to UNINITIALIZED and INITIALIZING
+        ThingStatusInfo uninitializedNone = ThingStatusInfoBuilder
+                .create(ThingStatus.UNINITIALIZED, ThingStatusDetail.NONE).build();
         ThingStatusInfo initializingNone = ThingStatusInfoBuilder
                 .create(ThingStatus.INITIALIZING, ThingStatusDetail.NONE).build();
-        ThingStatusInfoEvent event = ThingEventFactory.createStatusInfoEvent(thing.getUID(), initializingNone);
+        ThingStatusInfoEvent event = ThingEventFactory.createStatusInfoEvent(thing.getUID(), uninitializedNone);
+        ThingStatusInfoEvent event1 = ThingEventFactory.createStatusInfoEvent(thing.getUID(), initializingNone);
         managedThingProvider.add(thing);
 
-        waitForAssert(() -> assertThat(receivedEvents.size(), is(1)));
-        assertThat(receivedEvents.get(0).getType(), is(event.getType()));
-        assertThat(receivedEvents.get(0).getPayload(), is(event.getPayload()));
-        assertThat(receivedEvents.get(0).getTopic(), is(event.getTopic()));
+        waitForAssert(() -> assertThat(receivedEvents.size(), is(2)));
+        assertThat(receivedEvents.get(0), is(equalTo(event)));
+        assertThat(receivedEvents.get(1), is(equalTo(event1)));
         receivedEvents.clear();
 
         // set status to ONLINE
@@ -1206,9 +1289,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         state.callback.statusUpdated(thing, onlineNone);
 
         waitForAssert(() -> assertThat(receivedEvents.size(), is(1)));
-        assertThat(receivedEvents.get(0).getType(), is(event.getType()));
-        assertThat(receivedEvents.get(0).getPayload(), is(event.getPayload()));
-        assertThat(receivedEvents.get(0).getTopic(), is(event.getTopic()));
+        assertThat(receivedEvents.get(0), is(equalTo(event)));
         receivedEvents.clear();
 
         // set status to OFFLINE
@@ -1218,9 +1299,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         state.callback.statusUpdated(thing, offlineCommError);
 
         waitForAssert(() -> assertThat(receivedEvents.size(), is(1)));
-        assertThat(receivedEvents.get(0).getType(), is(event.getType()));
-        assertThat(receivedEvents.get(0).getPayload(), is(event.getPayload()));
-        assertThat(receivedEvents.get(0).getTopic(), is(event.getTopic()));
+        assertThat(receivedEvents.get(0), is(equalTo(event)));
         receivedEvents.clear();
 
         // set status to UNINITIALIZED
@@ -1231,17 +1310,17 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         waitForAssert(() -> {
             assertThat(receivedEvents.size(), is(2));
-            assertThat(receivedEvents.get(1).getType(), is(uninitializedEvent.getType()));
-            assertThat(receivedEvents.get(1).getPayload(), is(uninitializedEvent.getPayload()));
-            assertThat(receivedEvents.get(1).getTopic(), is(uninitializedEvent.getTopic()));
+            assertThat(receivedEvents.get(1), is(equalTo(uninitializedEvent)));
         });
     }
 
     @Test
     public void thingManagerPostsThingStatusChangedEventsIfTheStatusOfAThingIsChanged() throws Exception {
         registerThingTypeProvider();
+        registerConfigDescriptionProvider(false);
 
         class ThingHandlerState {
+            @Nullable
             ThingHandlerCallback callback;
         }
         final ThingHandlerState state = new ThingHandlerState();
@@ -1249,7 +1328,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         ThingHandler thingHandler = mock(ThingHandler.class);
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 state.callback = (ThingHandlerCallback) invocation.getArgument(0);
                 return null;
             }
@@ -1264,16 +1343,10 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         final List<ThingStatusInfoChangedEvent> infoChangedEvents = new ArrayList<>();
 
-        @NonNullByDefault
         EventSubscriber thingStatusEventSubscriber = new EventSubscriber() {
             @Override
             public Set<String> getSubscribedEventTypes() {
                 return Set.of(ThingStatusInfoChangedEvent.TYPE);
-            }
-
-            @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
             }
 
             @Override
@@ -1317,8 +1390,10 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
     @SuppressWarnings("null")
     public void thingManagerPostsLocalizedThingStatusInfoAndThingStatusInfoChangedEvents() throws Exception {
         registerThingTypeProvider();
+        registerConfigDescriptionProvider(false);
 
         class ThingHandlerState {
+            @Nullable
             ThingHandlerCallback callback;
         }
         final ThingHandlerState state = new ThingHandlerState();
@@ -1326,7 +1401,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         ThingHandler thingHandler = mock(ThingHandler.class);
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 state.callback = (ThingHandlerCallback) invocation.getArgument(0);
                 return null;
             }
@@ -1346,16 +1421,11 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         thingStatusInfoI18nLocalizationService.setBundleResolver(bundleResolver);
 
         final List<ThingStatusInfoEvent> infoEvents = new ArrayList<>();
-        @NonNullByDefault
+
         EventSubscriber thingStatusInfoEventSubscriber = new EventSubscriber() {
             @Override
             public Set<String> getSubscribedEventTypes() {
                 return Set.of(ThingStatusInfoEvent.TYPE);
-            }
-
-            @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
             }
 
             @Override
@@ -1366,16 +1436,11 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         registerService(thingStatusInfoEventSubscriber);
 
         final List<ThingStatusInfoChangedEvent> infoChangedEvents = new ArrayList<>();
-        @NonNullByDefault
+
         EventSubscriber thingStatusInfoChangedEventSubscriber = new EventSubscriber() {
             @Override
             public Set<String> getSubscribedEventTypes() {
                 return Set.of(ThingStatusInfoChangedEvent.TYPE);
-            }
-
-            @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
             }
 
             @Override
@@ -1389,15 +1454,21 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         managedThingProvider.add(thing);
 
         waitForAssert(() -> {
-            assertThat(infoEvents.size(), is(1));
+            assertThat(infoEvents.size(), is(2));
             assertThat(infoChangedEvents.size(), is(1));
         });
 
         assertThat(infoEvents.get(0).getType(), is(ThingStatusInfoEvent.TYPE));
         assertThat(infoEvents.get(0).getTopic(), is("openhab/things/binding:type:id/status"));
-        assertThat(infoEvents.get(0).getStatusInfo().getStatus(), is(ThingStatus.INITIALIZING));
+        assertThat(infoEvents.get(0).getStatusInfo().getStatus(), is(ThingStatus.UNINITIALIZED));
         assertThat(infoEvents.get(0).getStatusInfo().getStatusDetail(), is(ThingStatusDetail.NONE));
         assertThat(infoEvents.get(0).getStatusInfo().getDescription(), is(nullValue()));
+
+        assertThat(infoEvents.get(1).getType(), is(ThingStatusInfoEvent.TYPE));
+        assertThat(infoEvents.get(1).getTopic(), is("openhab/things/binding:type:id/status"));
+        assertThat(infoEvents.get(1).getStatusInfo().getStatus(), is(ThingStatus.INITIALIZING));
+        assertThat(infoEvents.get(1).getStatusInfo().getStatusDetail(), is(ThingStatusDetail.NONE));
+        assertThat(infoEvents.get(1).getStatusInfo().getDescription(), is(nullValue()));
 
         assertThat(infoChangedEvents.get(0).getType(), is(ThingStatusInfoChangedEvent.TYPE));
         assertThat(infoChangedEvents.get(0).getTopic(), is("openhab/things/binding:type:id/statuschanged"));
@@ -1416,7 +1487,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         Locale defaultLocale = localeProvider.getLocale();
 
         // set status to ONLINE (INITIALIZING -> ONLINE)
-        new DefaultLocaleSetter(getService(ConfigurationAdmin.class)).setDefaultLocale(Locale.ENGLISH);
+        new DefaultLocaleSetter(configurationAdmin).setDefaultLocale(Locale.ENGLISH);
         waitForAssert(() -> assertThat(localeProvider.getLocale(), is(Locale.ENGLISH)));
 
         ThingStatusInfo onlineNone = ThingStatusInfoBuilder.create(ThingStatus.ONLINE, ThingStatusDetail.NONE)
@@ -1447,7 +1518,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         infoChangedEvents.clear();
 
         // set status to OFFLINE (ONLINE -> OFFLINE)
-        new DefaultLocaleSetter(getService(ConfigurationAdmin.class)).setDefaultLocale(Locale.GERMAN);
+        new DefaultLocaleSetter(configurationAdmin).setDefaultLocale(Locale.GERMAN);
         waitForAssert(() -> assertThat(localeProvider.getLocale(), is(Locale.GERMAN)));
 
         ThingStatusInfo offlineNone = ThingStatusInfoBuilder.create(ThingStatus.OFFLINE, ThingStatusDetail.NONE)
@@ -1474,7 +1545,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         assertThat(infoChangedEvents.get(0).getOldStatusInfo().getStatusDetail(), is(ThingStatusDetail.NONE));
         assertThat(infoChangedEvents.get(0).getOldStatusInfo().getDescription(), is("Thing ist online."));
 
-        new DefaultLocaleSetter(getService(ConfigurationAdmin.class)).setDefaultLocale(defaultLocale);
+        new DefaultLocaleSetter(configurationAdmin).setDefaultLocale(defaultLocale);
         waitForAssert(() -> assertThat(localeProvider.getLocale(), is(defaultLocale)));
     }
 
@@ -1487,6 +1558,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         ThingImpl thing = (ThingImpl) ThingBuilder.create(THING_TYPE_UID, THING_UID).build();
 
         class ThingHandlerState {
+            @Nullable
             ThingHandlerCallback callback;
         }
         final ThingHandlerState state = new ThingHandlerState();
@@ -1494,7 +1566,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         ThingHandler thingHandler = mock(ThingHandler.class);
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 state.callback = (ThingHandlerCallback) invocation.getArgument(0);
                 return null;
             }
@@ -1516,8 +1588,10 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         // ThingHandler.initialize() not called, thing status is UNINITIALIZED.HANDLER_CONFIGURATION_PENDING
         ThingStatusInfo uninitializedPending = ThingStatusInfoBuilder
-                .create(ThingStatus.UNINITIALIZED, ThingStatusDetail.HANDLER_CONFIGURATION_PENDING).build();
+                .create(ThingStatus.UNINITIALIZED, ThingStatusDetail.HANDLER_CONFIGURATION_PENDING)
+                .withDescription("{parameter=The parameter is required.}").build();
         verify(thingHandler, never()).initialize();
+
         assertThat(thing.getStatusInfo(), is(uninitializedPending));
 
         // set required configuration parameter
@@ -1537,65 +1611,9 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
     @Test
     @SuppressWarnings("null")
-    public void thingManagerWaitsWithInitializeUntilBundleProcessingIsFinished() throws Exception {
-        Thing thing = ThingBuilder.create(THING_TYPE_UID, THING_UID).build();
-
-        class ThingHandlerState {
-            @SuppressWarnings("unused")
-            ThingHandlerCallback callback;
-        }
-        final ThingHandlerState state = new ThingHandlerState();
-
-        ThingHandler thingHandler = mock(ThingHandler.class);
-        doAnswer(new Answer<Void>() {
-            @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
-                state.callback = (ThingHandlerCallback) invocation.getArgument(0);
-                return null;
-            }
-        }).when(thingHandler).setCallback(any(ThingHandlerCallback.class));
-        when(thingHandler.getThing()).thenReturn(thing);
-
-        ThingHandlerFactory thingHandlerFactory = mock(ThingHandlerFactory.class);
-        when(thingHandlerFactory.supportsThingType(any(ThingTypeUID.class))).thenReturn(true);
-        when(thingHandlerFactory.registerHandler(any(Thing.class))).thenReturn(thingHandler);
-
-        registerService(thingHandlerFactory);
-
-        final ReadyMarker marker = new ReadyMarker(ThingManagerImpl.XML_THING_TYPE,
-                ReadyMarkerUtils.getIdentifier(FrameworkUtil.getBundle(this.getClass())));
-        waitForAssert(() -> {
-            // wait for the XML processing to be finished, then remove the ready marker again
-            assertThat(readyService.isReady(marker), is(true));
-            readyService.unmarkReady(marker);
-        });
-
-        ThingStatusInfo uninitializedNone = ThingStatusInfoBuilder
-                .create(ThingStatus.UNINITIALIZED, ThingStatusDetail.NONE).build();
-        assertThat(thing.getStatusInfo(), is(uninitializedNone));
-
-        managedThingProvider.add(thing);
-
-        // just wait a little to make sure really nothing happens
-        Thread.sleep(1000);
-        verify(thingHandler, never()).initialize();
-        assertThat(thing.getStatusInfo(), is(uninitializedNone));
-
-        readyService.markReady(marker);
-
-        // ThingHandler.initialize() called, thing status is INITIALIZING.NONE
-        ThingStatusInfo initializingNone = ThingStatusInfoBuilder
-                .create(ThingStatus.INITIALIZING, ThingStatusDetail.NONE).build();
-        waitForAssert(() -> {
-            verify(thingHandler, times(1)).initialize();
-            assertThat(thing.getStatusInfo(), is(initializingNone));
-        });
-    }
-
-    @Test
-    @SuppressWarnings("null")
     public void thingManagerCallsBridgeStatusChangedOnThingHandlerCorrectly() {
         class BridgeHandlerState {
+            @Nullable
             ThingHandlerCallback callback;
         }
         final BridgeHandlerState bridgeState = new BridgeHandlerState();
@@ -1607,7 +1625,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 bridgeState.callback = (ThingHandlerCallback) invocation.getArgument(0);
                 return null;
             }
@@ -1615,7 +1633,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 bridgeState.callback.statusUpdated(bridge,
                         ThingStatusInfoBuilder.create(ThingStatus.ONLINE, ThingStatusDetail.NONE).build());
                 return null;
@@ -1626,7 +1644,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 bridgeState.callback.statusUpdated(bridge,
                         ThingStatusInfoBuilder.create(ThingStatus.REMOVED, ThingStatusDetail.NONE).build());
                 return null;
@@ -1634,6 +1652,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         }).when(bridgeHandler).handleRemoval();
 
         class ThingHandlerState {
+            @Nullable
             ThingHandlerCallback callback;
         }
         final ThingHandlerState thingState = new ThingHandlerState();
@@ -1645,7 +1664,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 thingState.callback = (ThingHandlerCallback) invocation.getArgument(0);
                 return null;
             }
@@ -1653,7 +1672,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 thingState.callback.statusUpdated(thing,
                         ThingStatusInfoBuilder.create(ThingStatus.ONLINE, ThingStatusDetail.NONE).build());
                 return null;
@@ -1666,7 +1685,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         when(thingHandlerFactory.supportsThingType(any(ThingTypeUID.class))).thenReturn(true);
         doAnswer(new Answer<ThingHandler>() {
             @Override
-            public ThingHandler answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable ThingHandler answer(InvocationOnMock invocation) throws Throwable {
                 Thing thing = (Thing) invocation.getArgument(0);
                 if (thing instanceof Bridge) {
                     return bridgeHandler;
@@ -1678,6 +1697,8 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         }).when(thingHandlerFactory).registerHandler(any(Thing.class));
 
         registerService(thingHandlerFactory);
+        registerThingTypeProvider();
+        registerConfigDescriptionProvider(false);
 
         managedThingProvider.add(bridge);
         managedThingProvider.add(thing);
@@ -1715,11 +1736,16 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
     public void thingManagerCallsChildHandlerInitializedAndChildHandlerDisposedOnBridgeHandlerCorrectly() {
         class BridgeHandlerState {
             boolean childHandlerInitializedCalled;
+            @Nullable
             ThingHandler initializedHandler;
+            @Nullable
             Thing initializedThing;
             boolean childHandlerDisposedCalled;
+            @Nullable
             ThingHandler disposedHandler;
+            @Nullable
             Thing disposedThing;
+            @Nullable
             ThingHandlerCallback callback;
         }
         final BridgeHandlerState bridgeState = new BridgeHandlerState();
@@ -1731,7 +1757,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 bridgeState.callback = (ThingHandlerCallback) invocation.getArgument(0);
                 return null;
             }
@@ -1739,7 +1765,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 bridgeState.callback.statusUpdated(bridge,
                         ThingStatusInfoBuilder.create(ThingStatus.ONLINE, ThingStatusDetail.NONE).build());
                 return null;
@@ -1750,25 +1776,26 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
-                bridgeState.childHandlerInitializedCalled = true;
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 bridgeState.initializedHandler = (ThingHandler) invocation.getArgument(0);
                 bridgeState.initializedThing = (Thing) invocation.getArgument(1);
+                bridgeState.childHandlerInitializedCalled = true;
                 return null;
             }
         }).when(bridgeHandler).childHandlerInitialized(any(ThingHandler.class), any(Thing.class));
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
-                bridgeState.childHandlerDisposedCalled = true;
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 bridgeState.disposedHandler = (ThingHandler) invocation.getArgument(0);
                 bridgeState.disposedThing = (Thing) invocation.getArgument(1);
+                bridgeState.childHandlerDisposedCalled = true;
                 return null;
             }
         }).when(bridgeHandler).childHandlerDisposed(any(ThingHandler.class), any(Thing.class));
 
         class ThingHandlerState {
+            @Nullable
             ThingHandlerCallback callback;
         }
         final ThingHandlerState thingState = new ThingHandlerState();
@@ -1780,7 +1807,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 thingState.callback = (ThingHandlerCallback) invocation.getArgument(0);
                 return null;
             }
@@ -1788,7 +1815,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 thingState.callback.statusUpdated(thing,
                         ThingStatusInfoBuilder.create(ThingStatus.ONLINE, ThingStatusDetail.NONE).build());
                 return null;
@@ -1801,7 +1828,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         when(thingHandlerFactory.supportsThingType(any(ThingTypeUID.class))).thenReturn(true);
         doAnswer(new Answer<ThingHandler>() {
             @Override
-            public ThingHandler answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable ThingHandler answer(InvocationOnMock invocation) throws Throwable {
                 Thing thing = (Thing) invocation.getArgument(0);
                 if (thing instanceof Bridge) {
                     return bridgeHandler;
@@ -1812,6 +1839,8 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
             }
         }).when(thingHandlerFactory).registerHandler(any(Thing.class));
 
+        registerThingTypeProvider();
+        registerConfigDescriptionProvider(false);
         registerService(thingHandlerFactory);
 
         managedThingProvider.add(bridge);
@@ -1834,11 +1863,16 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
     public void thingManagerCallsChildHandlerInitializedAndChildHandlerDisposedOnBridgeHandlerCorrectlyEvenIfChildRegistrationTakesTooLong() {
         class BridgeHandlerState {
             boolean childHandlerInitializedCalled;
+            @Nullable
             ThingHandler initializedHandler;
+            @Nullable
             Thing initializedThing;
             boolean childHandlerDisposedCalled;
+            @Nullable
             ThingHandler disposedHandler;
+            @Nullable
             Thing disposedThing;
+            @Nullable
             ThingHandlerCallback callback;
         }
         final BridgeHandlerState bridgeState = new BridgeHandlerState();
@@ -1850,7 +1884,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 bridgeState.callback = (ThingHandlerCallback) invocation.getArgument(0);
                 return null;
             }
@@ -1858,7 +1892,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 bridgeState.callback.statusUpdated(bridge,
                         ThingStatusInfoBuilder.create(ThingStatus.ONLINE, ThingStatusDetail.NONE).build());
                 return null;
@@ -1869,7 +1903,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 bridgeState.childHandlerInitializedCalled = true;
                 bridgeState.initializedHandler = (ThingHandler) invocation.getArgument(0);
                 bridgeState.initializedThing = (Thing) invocation.getArgument(1);
@@ -1879,7 +1913,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 bridgeState.childHandlerDisposedCalled = true;
                 bridgeState.disposedHandler = (ThingHandler) invocation.getArgument(0);
                 bridgeState.disposedThing = (Thing) invocation.getArgument(1);
@@ -1888,6 +1922,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         }).when(bridgeHandler).childHandlerDisposed(any(ThingHandler.class), any(Thing.class));
 
         class ThingHandlerState {
+            @Nullable
             ThingHandlerCallback callback;
         }
         final ThingHandlerState thingState = new ThingHandlerState();
@@ -1899,7 +1934,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 thingState.callback = (ThingHandlerCallback) invocation.getArgument(0);
                 return null;
             }
@@ -1907,7 +1942,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 thingState.callback.statusUpdated(thing,
                         ThingStatusInfoBuilder.create(ThingStatus.ONLINE, ThingStatusDetail.NONE).build());
                 return null;
@@ -1920,7 +1955,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         when(thingHandlerFactory.supportsThingType(any(ThingTypeUID.class))).thenReturn(true);
         doAnswer(new Answer<ThingHandler>() {
             @Override
-            public ThingHandler answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable ThingHandler answer(InvocationOnMock invocation) throws Throwable {
                 Thread.sleep(6000); // Wait longer than the SafeMethodCaller timeout
                 Thing thing = (Thing) invocation.getArgument(0);
                 if (thing instanceof Bridge) {
@@ -1932,6 +1967,8 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
             }
         }).when(thingHandlerFactory).registerHandler(any(Thing.class));
 
+        registerThingTypeProvider();
+        registerConfigDescriptionProvider(false);
         registerService(thingHandlerFactory);
 
         managedThingProvider.add(bridge);
@@ -1954,11 +1991,17 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
     public void thingManagerConsidersUNKNOWNasReadyToUseAndForwardsCommand() {
         class ThingHandlerState {
             boolean handleCommandCalled;
+            @Nullable
             ChannelUID calledChannelUID;
+            @Nullable
             Command calledCommand;
+            @Nullable
             ThingHandlerCallback callback;
         }
         final ThingHandlerState state = new ThingHandlerState();
+
+        registerThingTypeProvider();
+        registerConfigDescriptionProvider(false);
 
         managedThingProvider.add(thing);
 
@@ -1966,7 +2009,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 state.callback = (ThingHandlerCallback) invocation.getArgument(0);
                 return null;
             }
@@ -1974,7 +2017,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
 
         doAnswer(new Answer<Void>() {
             @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
+            public @Nullable Void answer(InvocationOnMock invocation) throws Throwable {
                 state.handleCommandCalled = true;
                 state.calledChannelUID = (ChannelUID) invocation.getArgument(0);
                 state.calledCommand = (Command) invocation.getArgument(1);
@@ -2013,17 +2056,9 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
         });
     }
 
-    private URI configDescriptionUri() {
-        try {
-            return new URI("test:test");
-        } catch (URISyntaxException e) {
-            throw new IllegalStateException("Error creating config description URI");
-        }
-    }
-
     private void registerThingTypeProvider() {
         ThingType thingType = ThingTypeBuilder.instance(new ThingTypeUID("binding", "type"), "label")
-                .withConfigDescriptionURI(configDescriptionUri()).build();
+                .withConfigDescriptionURI(THING_CONFIG_URI).build();
 
         ThingTypeProvider thingTypeProvider = mock(ThingTypeProvider.class);
         when(thingTypeProvider.getThingType(any(ThingTypeUID.class), nullable(Locale.class))).thenReturn(thingType);
@@ -2035,7 +2070,7 @@ public class ThingManagerOSGiTest extends JavaOSGiTest {
     }
 
     private void registerConfigDescriptionProvider(boolean withRequiredParameter) {
-        ConfigDescription configDescription = ConfigDescriptionBuilder.create(configDescriptionUri())
+        ConfigDescription configDescription = ConfigDescriptionBuilder.create(THING_CONFIG_URI)
                 .withParameter(
                         ConfigDescriptionParameterBuilder.create("parameter", ConfigDescriptionParameter.Type.TEXT)
                                 .withRequired(withRequiredParameter).build())

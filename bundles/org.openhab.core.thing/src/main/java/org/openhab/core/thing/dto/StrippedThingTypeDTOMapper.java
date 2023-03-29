@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -19,7 +19,7 @@ import org.openhab.core.thing.type.BridgeType;
 import org.openhab.core.thing.type.ThingType;
 
 /**
- * The {@link StrippedThingTypeDTOMapper} is an utility class to map things into stripped thing type data transfer
+ * The {@link StrippedThingTypeDTOMapper} is a utility class to map things into stripped thing type data transfer
  * objects (DTOs).
  *
  * @author Miki Jankov - Initial contribution

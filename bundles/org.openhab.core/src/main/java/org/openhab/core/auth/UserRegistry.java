@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -40,7 +40,7 @@ public interface UserRegistry extends Registry<User, String>, AuthenticationProv
     public User register(String username, String password, Set<String> roles);
 
     /**
-     * Change the password for an {@link User} in this registry. The implementation receives the new password and is
+     * Change the password for a {@link User} in this registry. The implementation receives the new password and is
      * responsible for their secure storage (for instance by hashing the password).
      *
      * @param username the username of the existing user

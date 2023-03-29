@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -44,6 +44,7 @@ public class TTSServiceStub implements TTSService {
     private static final String TTS_SERVICE_STUB_LABEL = "ttsServiceStubLabel";
 
     private @Nullable BundleContext context;
+    private String synthesized = "";
 
     public TTSServiceStub() {
     }
@@ -88,6 +89,7 @@ public class TTSServiceStub implements TTSService {
 
     @Override
     public AudioStream synthesize(String text, Voice voice, final AudioFormat requestedFormat) throws TTSException {
+        synthesized = text;
         return new AudioStream() {
 
             @Override
@@ -101,6 +103,10 @@ public class TTSServiceStub implements TTSService {
                 return requestedFormat;
             }
         };
+    }
+
+    public String getSynthesized() {
+        return synthesized;
     }
 
     @Override

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -24,7 +24,7 @@ import org.openhab.core.voice.Voice;
 public class VoiceMapper {
 
     /**
-     * Maps a {@link Voice} to an {@link VoiceDTO}.
+     * Maps a {@link Voice} to a {@link VoiceDTO}.
      *
      * @param voice the voice
      *

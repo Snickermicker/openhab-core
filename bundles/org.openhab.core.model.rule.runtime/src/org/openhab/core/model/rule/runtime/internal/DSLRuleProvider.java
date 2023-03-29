@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -43,6 +43,7 @@ import org.openhab.core.model.core.ModelRepositoryChangeListener;
 import org.openhab.core.model.rule.jvmmodel.RulesRefresher;
 import org.openhab.core.model.rule.rules.ChangedEventTrigger;
 import org.openhab.core.model.rule.rules.CommandEventTrigger;
+import org.openhab.core.model.rule.rules.DateTimeTrigger;
 import org.openhab.core.model.rule.rules.EventEmittedTrigger;
 import org.openhab.core.model.rule.rules.EventTrigger;
 import org.openhab.core.model.rule.rules.GroupMemberChangedEventTrigger;
@@ -57,6 +58,7 @@ import org.openhab.core.model.rule.rules.ThingStateUpdateEventTrigger;
 import org.openhab.core.model.rule.rules.TimerTrigger;
 import org.openhab.core.model.rule.rules.UpdateEventTrigger;
 import org.openhab.core.model.script.runtime.DSLScriptContextProvider;
+import org.openhab.core.model.script.script.Script;
 import org.openhab.core.service.ReadyMarker;
 import org.openhab.core.service.ReadyMarkerFilter;
 import org.openhab.core.service.ReadyService;
@@ -169,6 +171,28 @@ public class DSLRuleProvider
                 default:
                     logger.debug("Unknown event type.");
             }
+        } else if ("script".equals(ruleModelType)) {
+            switch (type) {
+                case MODIFIED:
+                    Rule oldRule = rules.remove(modelFileName);
+                    if (oldRule != null) {
+                        removeRule(oldRule);
+                    }
+                case ADDED:
+                    EObject model = modelRepository.getModel(modelFileName);
+                    if (model instanceof Script) {
+                        addRule(toRule(modelFileName, ((Script) model)));
+                    }
+                    break;
+                case REMOVED:
+                    oldRule = rules.remove(modelFileName);
+                    if (oldRule != null) {
+                        removeRule(oldRule);
+                    }
+                    break;
+                default:
+                    logger.debug("Unknown event type.");
+            }
         }
     }
 
@@ -243,6 +267,18 @@ public class DSLRuleProvider
         }
     }
 
+    private Rule toRule(String modelName, Script script) {
+        String scriptText = NodeModelUtils.findActualNodeFor(script).getText();
+
+        Configuration cfg = new Configuration();
+        cfg.put("script", removeIndentation(scriptText));
+        cfg.put("type", MIMETYPE_OPENHAB_DSL_RULE);
+        List<Action> actions = List.of(ActionBuilder.create().withId("script").withTypeUID("script.ScriptAction")
+                .withConfiguration(cfg).build());
+
+        return RuleBuilder.create(modelName).withTags("Script").withName(modelName).withActions(actions).build();
+    }
+
     private Rule toRule(String modelName, org.openhab.core.model.rule.rules.Rule rule, int index) {
         String name = rule.getName();
         String uid = modelName + "-" + index;
@@ -284,9 +320,8 @@ public class DSLRuleProvider
         }
         String firstLine = s.lines().findFirst().orElse("");
         String indentation = firstLine.substring(0, firstLine.length() - firstLine.stripLeading().length());
-        return s.lines().map(line -> {
-            return line.startsWith(indentation) ? line.substring(indentation.length()) : line;
-        }).collect(Collectors.joining("\n"));
+        return s.lines().map(line -> (line.startsWith(indentation) ? line.substring(indentation.length()) : line))
+                .collect(Collectors.joining("\n"));
     }
 
     private @Nullable Trigger mapTrigger(EventTrigger t) {
@@ -373,9 +408,9 @@ public class DSLRuleProvider
                 cfg.put("cronExpression", tt.getCron());
             } else {
                 id = tt.getTime();
-                if (id.equals("noon")) {
+                if ("noon".equals(id)) {
                     cfg.put("cronExpression", "0 0 12 * * ?");
-                } else if (id.equals("midnight")) {
+                } else if ("midnight".equals(id)) {
                     cfg.put("cronExpression", "0 0 0 * * ?");
                 } else {
                     logger.warn("Unrecognized time expression '{}' in rule trigger", tt.getTime());
@@ -383,6 +418,13 @@ public class DSLRuleProvider
                 }
             }
             return TriggerBuilder.create().withId(Integer.toString(triggerId++)).withTypeUID("timer.GenericCronTrigger")
+                    .withConfiguration(cfg).build();
+        } else if (t instanceof DateTimeTrigger) {
+            DateTimeTrigger tt = (DateTimeTrigger) t;
+            Configuration cfg = new Configuration();
+            cfg.put("itemName", tt.getItem());
+            cfg.put("timeOnly", tt.isTimeOnly());
+            return TriggerBuilder.create().withId(Integer.toString((triggerId++))).withTypeUID("timer.DateTimeTrigger")
                     .withConfiguration(cfg).build();
         } else if (t instanceof EventEmittedTrigger) {
             EventEmittedTrigger eeTrigger = (EventEmittedTrigger) t;

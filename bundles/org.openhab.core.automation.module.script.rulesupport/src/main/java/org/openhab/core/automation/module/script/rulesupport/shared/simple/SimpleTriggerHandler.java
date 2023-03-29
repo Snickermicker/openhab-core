@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -14,6 +14,8 @@ package org.openhab.core.automation.module.script.rulesupport.shared.simple;
 
 import java.util.Map;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.automation.Trigger;
 import org.openhab.core.automation.module.script.rulesupport.shared.ScriptedHandler;
 
@@ -21,8 +23,9 @@ import org.openhab.core.automation.module.script.rulesupport.shared.ScriptedHand
  *
  * @author Simon Merschjohann - Initial contribution
  */
+@NonNullByDefault
 public abstract class SimpleTriggerHandler implements ScriptedHandler {
-    private SimpleTriggerHandlerCallback ruleCallback;
+    private @Nullable SimpleTriggerHandlerCallback ruleCallback;
 
     public void init(Trigger module) {
     }
@@ -32,6 +35,9 @@ public abstract class SimpleTriggerHandler implements ScriptedHandler {
     }
 
     protected void trigger(Map<String, ?> context) {
-        this.ruleCallback.triggered(context);
+        SimpleTriggerHandlerCallback callback = this.ruleCallback;
+        if (callback != null) {
+            callback.triggered(context);
+        }
     }
 }

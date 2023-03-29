@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -42,7 +42,7 @@ public final class Connection {
     /**
      * This constructor is responsible for creation of connections between modules in the rule.
      *
-     * @param inputName is an unique id of the {@code Input} in scope of the {@link Module}.
+     * @param inputName is a unique id of the {@code Input} in scope of the {@link Module}.
      * @param reference the reference tokens of this connection
      */
     public Connection(String inputName, String reference) {
@@ -52,9 +52,9 @@ public final class Connection {
     /**
      * This constructor is responsible for creation of connections between modules in the rule.
      *
-     * @param inputName is an unique name of the {@code Input} in scope of the {@link Module}.
-     * @param outputModuleId is an unique id of the {@code Module} in scope of the {@link Rule}.
-     * @param outputName is an unique name of the {@code Output} in scope of the {@link Module}.
+     * @param inputName is a unique name of the {@code Input} in scope of the {@link Module}.
+     * @param outputModuleId is a unique id of the {@code Module} in scope of the {@link Rule}.
+     * @param outputName is a unique name of the {@code Output} in scope of the {@link Module}.
      * @param reference the reference tokens of this connection
      */
     public Connection(String inputName, @Nullable String outputModuleId, @Nullable String outputName,

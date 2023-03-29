@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -42,26 +42,29 @@ public class DecimalType extends Number implements PrimitiveType, State, Command
     protected BigDecimal value;
 
     public DecimalType() {
-        this.value = BigDecimal.ZERO;
+        this(BigDecimal.ZERO);
     }
 
-    public DecimalType(BigDecimal value) {
-        this.value = value;
-    }
-
-    public DecimalType(long value) {
-        this.value = BigDecimal.valueOf(value);
-    }
-
-    public DecimalType(double value) {
-        this.value = BigDecimal.valueOf(value);
+    /**
+     * Creates a new {@link DecimalType} with the given value.
+     *
+     * @param value a number
+     */
+    public DecimalType(Number value) {
+        if (value instanceof QuantityType) {
+            this.value = ((QuantityType<?>) value).toBigDecimal();
+        } else if (value instanceof HSBType) {
+            this.value = ((HSBType) value).toBigDecimal();
+        } else {
+            this.value = new BigDecimal(value.toString());
+        }
     }
 
     /**
      * Creates a new {@link DecimalType} with the given value.
      * The English locale is used to determine (decimal/grouping) separator characters.
      *
-     * @param value the non null value representing a number
+     * @param value the value representing a number
      * @throws NumberFormatException when the number could not be parsed to a {@link BigDecimal}
      */
     public DecimalType(String value) {
@@ -71,7 +74,7 @@ public class DecimalType extends Number implements PrimitiveType, State, Command
     /**
      * Creates a new {@link DecimalType} with the given value.
      *
-     * @param value the non null value representing a number
+     * @param value the value representing a number
      * @param locale the locale used to determine (decimal/grouping) separator characters
      * @throws NumberFormatException when the number could not be parsed to a {@link BigDecimal}
      */

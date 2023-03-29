@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -72,8 +72,9 @@ public interface ThingTracker {
     /**
      * This method is called for every thing that was updated within the {@link ThingRegistryImpl}.
      *
-     * @param thing the thing which was updated
+     * @param oldThing the old think
+     * @param newThing the thing which was updated
      * @param thingTrackerEvent the event that occurred
      */
-    void thingUpdated(Thing thing, ThingTrackerEvent thingTrackerEvent);
+    void thingUpdated(Thing oldThing, Thing newThing, ThingTrackerEvent thingTrackerEvent);
 }

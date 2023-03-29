@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -130,6 +130,23 @@ public class ItemStateConverterImplTest {
         State convertedState = itemStateConverter.convertToAcceptedState(originalState, item);
 
         assertThat(convertedState, is(new QuantityType<>("285.49 K")));
+    }
+
+    @ParameterizedTest
+    @MethodSource("locales")
+    public void numberItemMiredConversion(Locale locale) {
+        Locale.setDefault(locale);
+
+        NumberItem item = mock(NumberItem.class);
+        StateDescription stateDescription = mock(StateDescription.class);
+        when(item.getStateDescription()).thenReturn(stateDescription);
+        doReturn(Temperature.class).when(item).getDimension();
+        when(stateDescription.getPattern()).thenReturn("%.1f K");
+
+        State originalState = new QuantityType<>("153 mired");
+        State convertedState = itemStateConverter.convertToAcceptedState(originalState, item);
+
+        assertThat(((QuantityType) convertedState).intValue(), is(6535));
     }
 
     @ParameterizedTest

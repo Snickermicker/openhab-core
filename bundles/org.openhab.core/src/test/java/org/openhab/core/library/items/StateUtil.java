@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -21,6 +21,7 @@ import java.util.Set;
 
 import javax.measure.quantity.Temperature;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.core.items.GenericItem;
 import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.DecimalType;
@@ -44,6 +45,7 @@ import org.openhab.core.types.UnDefType;
  *
  * @author Stefan Triller - Initial contribution
  */
+@NonNullByDefault
 public class StateUtil {
 
     public static List<State> getAllStates() {
@@ -98,7 +100,7 @@ public class StateUtil {
     }
 
     public static void testAcceptedStates(GenericItem item) {
-        Set<Class<? extends State>> successfullStates = new HashSet<>();
+        Set<Class<? extends State>> successfulStates = new HashSet<>();
 
         for (State s : getAllStates()) {
             item.setState(s);
@@ -109,7 +111,7 @@ public class StateUtil {
                 } else {
                     // the state should be set on the item now
                     assertNotEquals(UnDefType.NULL, item.getState());
-                    successfullStates.add(s.getClass());
+                    successfulStates.add(s.getClass());
                 }
                 // reset item
                 item.setState(UnDefType.NULL);
@@ -120,7 +122,7 @@ public class StateUtil {
 
         // test if the item accepts a state that is not in our test state list
         for (Class<? extends State> acceptedState : item.getAcceptedDataTypes()) {
-            if (!successfullStates.contains(acceptedState)) {
+            if (!successfulStates.contains(acceptedState)) {
                 fail("Item '" + item.getType() + "' accepts untested state: " + acceptedState);
             }
         }

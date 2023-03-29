@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -37,7 +37,7 @@ public class UserSession {
     /**
      * Constructs a new session.
      *
-     * @param sessionId an unique ID for the session
+     * @param sessionId a unique ID for the session
      * @param refreshToken the refresh token associated to the session
      * @param clientId the client ID associated to the session
      * @param redirectUri the callback URI provided when the client was authorized by the user

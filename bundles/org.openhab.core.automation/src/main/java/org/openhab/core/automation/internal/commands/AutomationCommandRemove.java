@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -16,6 +16,8 @@ import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.automation.Rule;
 
 /**
@@ -31,17 +33,18 @@ import org.openhab.core.automation.Rule;
  * @author Kai Kreuzer - fixed feedback when deleting non-existent rule
  * @author Marin Mitev - removed prefixes in the output
  */
+@NonNullByDefault
 public class AutomationCommandRemove extends AutomationCommand {
 
     /**
      * This field keeps the UID of the {@link Rule} if command is {@link AutomationCommands#REMOVE_RULE}
      */
-    private String id;
+    private @Nullable String id;
 
     /**
      * This field keeps URL of the source of automation objects that has to be removed.
      */
-    private URL url;
+    private @Nullable URL url;
 
     /**
      * @see AutomationCommand#AutomationCommand(String, String[], int, AutomationCommandsPluggable)
@@ -62,7 +65,9 @@ public class AutomationCommandRemove extends AutomationCommand {
      */
     @Override
     public String execute() {
-        if (parsingResult != SUCCESS) {
+        String id = this.id;
+        URL url = this.url;
+        if (!SUCCESS.equals(parsingResult) || id == null || url == null) {
             return parsingResult;
         }
         switch (providerType) {
@@ -84,12 +89,12 @@ public class AutomationCommandRemove extends AutomationCommand {
      * This method serves to create an {@link URL} object or {@link File} object from a string that is passed as
      * a parameter of the command. From the {@link File} object the URL is constructed.
      *
-     * @param parameterValue is a string that is passed as parameter of the command and it supposed to be an URL
+     * @param parameterValue is a string that is passed as parameter of the command and it supposed to be a URL
      *            representation.
      * @return an {@link URL} object created from the string that is passed as parameter of the command or <b>null</b>
      *         if either no legal protocol could be found in the specified string or the string could not be parsed.
      */
-    private URL initURL(String parameterValue) {
+    private @Nullable URL initURL(String parameterValue) {
         try {
             return new URL(parameterValue);
         } catch (MalformedURLException mue) {

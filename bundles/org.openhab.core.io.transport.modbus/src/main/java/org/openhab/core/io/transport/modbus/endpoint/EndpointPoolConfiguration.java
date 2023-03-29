@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -26,6 +26,11 @@ import org.eclipse.jdt.annotation.Nullable;
  */
 @NonNullByDefault
 public class EndpointPoolConfiguration {
+
+    /**
+     * Delay between first TCP packet and successful TCP connection.
+     */
+    private long afterConnectionDelayMillis;
 
     /**
      * How long should be the minimum duration between previous transaction end and the next transaction with the same
@@ -58,6 +63,14 @@ public class EndpointPoolConfiguration {
      * default is respected.
      */
     private int connectTimeoutMillis;
+
+    public void setAfterConnectionDelayMillis(long afterConnectionDelayMillis) {
+        this.afterConnectionDelayMillis = afterConnectionDelayMillis;
+    }
+
+    public long getAfterConnectionDelayMillis() {
+        return afterConnectionDelayMillis;
+    }
 
     public long getInterConnectDelayMillis() {
         return interConnectDelayMillis;
@@ -102,7 +115,7 @@ public class EndpointPoolConfiguration {
     @Override
     public int hashCode() {
         return Objects.hash(connectMaxTries, connectTimeoutMillis, interConnectDelayMillis, interTransactionDelayMillis,
-                reconnectAfterMillis);
+                reconnectAfterMillis, afterConnectionDelayMillis);
     }
 
     @Override
@@ -110,7 +123,7 @@ public class EndpointPoolConfiguration {
         return "EndpointPoolConfiguration [interTransactionDelayMillis=" + interTransactionDelayMillis
                 + ", interConnectDelayMillis=" + interConnectDelayMillis + ", connectMaxTries=" + connectMaxTries
                 + ", reconnectAfterMillis=" + reconnectAfterMillis + ", connectTimeoutMillis=" + connectTimeoutMillis
-                + "]";
+                + ", afterConnectionDelayMillis=" + afterConnectionDelayMillis + "]";
     }
 
     @Override
@@ -128,6 +141,7 @@ public class EndpointPoolConfiguration {
         return connectMaxTries == rhs.connectMaxTries && connectTimeoutMillis == rhs.connectTimeoutMillis
                 && interConnectDelayMillis == rhs.interConnectDelayMillis
                 && interTransactionDelayMillis == rhs.interTransactionDelayMillis
-                && reconnectAfterMillis == rhs.reconnectAfterMillis;
+                && reconnectAfterMillis == rhs.reconnectAfterMillis
+                && afterConnectionDelayMillis == rhs.afterConnectionDelayMillis;
     }
 }

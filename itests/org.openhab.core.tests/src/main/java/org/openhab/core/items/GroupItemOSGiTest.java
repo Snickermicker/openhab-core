@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -29,6 +29,7 @@ import javax.measure.quantity.Dimensionless;
 import javax.measure.quantity.Pressure;
 import javax.measure.quantity.Temperature;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -38,7 +39,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.openhab.core.events.Event;
-import org.openhab.core.events.EventFilter;
 import org.openhab.core.events.EventPublisher;
 import org.openhab.core.events.EventSubscriber;
 import org.openhab.core.i18n.UnitProvider;
@@ -73,26 +73,25 @@ import tech.units.indriya.unit.Units;
  * @author Stefan Triller - Initial contribution
  */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.WARN)
+@MockitoSettings(strictness = Strictness.LENIENT)
+@NonNullByDefault
 public class GroupItemOSGiTest extends JavaOSGiTest {
 
     /** Time to sleep when a file is created/modified/deleted, so the event can be handled */
     private static final int WAIT_EVENT_TO_BE_HANDLED = 1000;
 
-    private List<Event> events = new LinkedList<>();
-    private EventPublisher publisher;
-
-    private ItemRegistry itemRegistry;
-
-    private @Mock UnitProvider unitProvider;
-
+    private final List<Event> events = new LinkedList<>();
     private final GroupFunctionHelper groupFunctionHelper = new GroupFunctionHelper();
-    private ItemStateConverter itemStateConverter;
+    private final EventPublisher publisher = event -> events.add(event);
+
+    private @NonNullByDefault({}) ItemRegistry itemRegistry;
+    private @NonNullByDefault({}) ItemStateConverter itemStateConverter;
+
+    private @Mock @NonNullByDefault({}) UnitProvider unitProviderMock;
 
     @BeforeEach
     public void beforeEach() {
         registerVolatileStorageService();
-        publisher = event -> events.add(event);
 
         itemRegistry = getService(ItemRegistry.class);
         assertNotNull(itemRegistry);
@@ -110,16 +109,11 @@ public class GroupItemOSGiTest extends JavaOSGiTest {
                 hs.add(ItemUpdatedEvent.TYPE);
                 return hs;
             }
-
-            @Override
-            public EventFilter getEventFilter() {
-                return null;
-            }
         });
 
-        when(unitProvider.getUnit(Temperature.class)).thenReturn(Units.CELSIUS);
+        when(unitProviderMock.getUnit(Temperature.class)).thenReturn(Units.CELSIUS);
 
-        itemStateConverter = new ItemStateConverterImpl(unitProvider);
+        itemStateConverter = new ItemStateConverterImpl(unitProviderMock);
     }
 
     @Disabled
@@ -148,7 +142,6 @@ public class GroupItemOSGiTest extends JavaOSGiTest {
         assertThat(change.getItem().label, is("secondLabel"));
     }
 
-    @SuppressWarnings("unchecked")
     @Test()
     public void assertAcceptedCommandTypesOnGroupItemsReturnsSubsetOfCommandTypesSupportedByAllMembers() {
         SwitchItem switchItem = new SwitchItem("switch");
@@ -778,7 +771,7 @@ public class GroupItemOSGiTest extends JavaOSGiTest {
         gfDTO.name = "sum";
         GroupFunction function = groupFunctionHelper.createGroupFunction(gfDTO, baseItem);
         GroupItem groupItem = new GroupItem("number", baseItem, function);
-        groupItem.setUnitProvider(unitProvider);
+        groupItem.setUnitProvider(unitProviderMock);
 
         NumberItem celsius = createNumberItem("C", Temperature.class, new QuantityType<>("23 °C"));
         groupItem.addMember(celsius);
@@ -807,7 +800,7 @@ public class GroupItemOSGiTest extends JavaOSGiTest {
         gfDTO.name = "sum";
         GroupFunction function = groupFunctionHelper.createGroupFunction(gfDTO, baseItem);
         GroupItem groupItem = new GroupItem("number", baseItem, function);
-        groupItem.setUnitProvider(unitProvider);
+        groupItem.setUnitProvider(unitProviderMock);
         groupItem.setItemStateConverter(itemStateConverter);
 
         NumberItem celsius = createNumberItem("C", Temperature.class, new QuantityType<>("23 °C"));
@@ -827,7 +820,7 @@ public class GroupItemOSGiTest extends JavaOSGiTest {
 
     private NumberItem createNumberItem(String name, Class<? extends Quantity<?>> dimension, State state) {
         NumberItem item = new NumberItem(CoreItemFactory.NUMBER + ":" + dimension.getSimpleName(), name);
-        item.setUnitProvider(unitProvider);
+        item.setUnitProvider(unitProviderMock);
         item.setState(state);
 
         return item;

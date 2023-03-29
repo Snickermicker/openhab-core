@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -81,6 +81,15 @@ public class NumberItem extends GenericItem {
         internalSend(command);
     }
 
+    public void send(QuantityType<?> command) {
+        if (dimension == null) {
+            DecimalType strippedCommand = new DecimalType(command.toBigDecimal());
+            internalSend(strippedCommand);
+        } else {
+            internalSend(command);
+        }
+    }
+
     @Override
     public @Nullable StateDescription getStateDescription(@Nullable Locale locale) {
         StateDescription stateDescription = super.getStateDescription(locale);
@@ -106,9 +115,16 @@ public class NumberItem extends GenericItem {
 
     @Override
     public void setState(State state) {
+        // QuantityType update to a NumberItem without, strip unit
+        if (state instanceof QuantityType && dimension == null) {
+            DecimalType plainState = new DecimalType(((QuantityType<?>) state).toBigDecimal());
+            super.setState(plainState);
+            return;
+        }
+
         // DecimalType update for a NumberItem with dimension, convert to QuantityType:
         if (state instanceof DecimalType && dimension != null) {
-            Unit<?> unit = getUnit();
+            Unit<?> unit = getUnit(dimension, false);
             if (unit != null) {
                 super.setState(new QuantityType<>(((DecimalType) state).doubleValue(), unit));
                 return;
@@ -117,11 +133,11 @@ public class NumberItem extends GenericItem {
 
         // QuantityType update, check unit and convert if necessary:
         if (state instanceof QuantityType) {
-            Unit<?> itemUnit = getUnit();
+            Unit<?> itemUnit = getUnit(dimension, true);
             Unit<?> stateUnit = ((QuantityType<?>) state).getUnit();
             if (itemUnit != null && (!stateUnit.getSystemUnit().equals(itemUnit.getSystemUnit())
                     || UnitUtils.isDifferentMeasurementSystem(itemUnit, stateUnit))) {
-                QuantityType<?> convertedState = ((QuantityType<?>) state).toUnit(itemUnit);
+                QuantityType<?> convertedState = ((QuantityType<?>) state).toInvertibleUnit(itemUnit);
                 if (convertedState != null) {
                     super.setState(convertedState);
                     return;
@@ -145,7 +161,7 @@ public class NumberItem extends GenericItem {
      * @return the optional unit symbol for this {@link NumberItem}.
      */
     public @Nullable String getUnitSymbol() {
-        Unit<?> unit = getUnit();
+        Unit<?> unit = getUnit(dimension, true);
         return unit != null ? unit.toString() : null;
     }
 
@@ -153,13 +169,14 @@ public class NumberItem extends GenericItem {
      * Derive the unit for this item by the following priority:
      * <ul>
      * <li>the unit parsed from the state description</li>
+     * <li>no unit if state description contains <code>%unit%</code></li>
      * <li>the default system unit from the item's dimension</li>
      * </ul>
      *
      * @return the {@link Unit} for this item if available, {@code null} otherwise.
      */
     public @Nullable Unit<? extends Quantity<?>> getUnit() {
-        return getUnit(dimension);
+        return getUnit(dimension, true);
     }
 
     /**
@@ -173,7 +190,7 @@ public class NumberItem extends GenericItem {
      */
     public @Nullable QuantityType<?> toQuantityType(DecimalType originalType,
             @Nullable Class<? extends Quantity<?>> dimension) {
-        Unit<? extends Quantity<?>> itemUnit = getUnit(dimension);
+        Unit<? extends Quantity<?>> itemUnit = getUnit(dimension, false);
         if (itemUnit != null) {
             return new QuantityType<>(originalType.toBigDecimal(), itemUnit);
         }
@@ -185,14 +202,18 @@ public class NumberItem extends GenericItem {
      * Derive the unit for this item by the following priority:
      * <ul>
      * <li>the unit parsed from the state description</li>
+     * <li>the unit from the value if <code>hasUnit = true</code> and state description has unit
+     * <code>%unit%</code></li>
      * <li>the default system unit from the (optional) dimension parameter</li>
      * </ul>
      *
      * @param dimension the (optional) dimension
+     * @param hasUnit if the value has a unit
      * @return the {@link Unit} for this item if available, {@code null} otherwise.
      */
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    private @Nullable Unit<? extends Quantity<?>> getUnit(@Nullable Class<? extends Quantity<?>> dimension) {
+    private @Nullable Unit<? extends Quantity<?>> getUnit(@Nullable Class<? extends Quantity<?>> dimension,
+            boolean hasUnit) {
         if (dimension == null) {
             // if it is a plain number without dimension, we do not have a unit.
             return null;
@@ -201,6 +222,10 @@ public class NumberItem extends GenericItem {
         if (stateDescription != null) {
             String pattern = stateDescription.getPattern();
             if (pattern != null) {
+                if (hasUnit && pattern.contains(UnitUtils.UNIT_PLACEHOLDER)) {
+                    // use provided unit if present
+                    return null;
+                }
                 Unit<?> stateDescriptionUnit = UnitUtils.parseUnit(pattern);
                 if (stateDescriptionUnit != null) {
                     return stateDescriptionUnit;

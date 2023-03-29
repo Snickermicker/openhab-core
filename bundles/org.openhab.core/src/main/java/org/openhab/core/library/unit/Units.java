@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -64,8 +64,10 @@ import tech.units.indriya.function.ExpConverter;
 import tech.units.indriya.function.LogConverter;
 import tech.units.indriya.function.MultiplyConverter;
 import tech.units.indriya.unit.AlternateUnit;
+import tech.units.indriya.unit.BaseUnit;
 import tech.units.indriya.unit.ProductUnit;
 import tech.units.indriya.unit.TransformedUnit;
+import tech.units.indriya.unit.UnitDimension;
 
 /**
  * Delegate common units to {@link Units} to hide this dependency from the rest of openHAB.
@@ -171,6 +173,7 @@ public final class Units extends CustomUnits {
                     MultiplyConverter.ofRational(BigInteger.valueOf(1852), BigInteger.valueOf(1000))));
     public static final Unit<SolidAngle> STERADIAN = addUnit(tech.units.indriya.unit.Units.STERADIAN);
     public static final Unit<Temperature> KELVIN = addUnit(tech.units.indriya.unit.Units.KELVIN);
+    public static final Unit<?> MIRED = addUnit(MetricPrefix.MEGA(tech.units.indriya.unit.Units.KELVIN).inverse());
     public static final Unit<Time> SECOND = addUnit(tech.units.indriya.unit.Units.SECOND);
     public static final Unit<Time> MINUTE = addUnit(tech.units.indriya.unit.Units.MINUTE);
     public static final Unit<Time> HOUR = addUnit(tech.units.indriya.unit.Units.HOUR);
@@ -187,7 +190,7 @@ public final class Units extends CustomUnits {
             tech.units.indriya.unit.Units.CUBIC_METRE.divide(tech.units.indriya.unit.Units.HOUR)));
     public static final Unit<VolumetricFlowRate> CUBICMETRE_PER_DAY = addUnit(new ProductUnit<VolumetricFlowRate>(
             tech.units.indriya.unit.Units.CUBIC_METRE.divide(tech.units.indriya.unit.Units.DAY)));
-    public static final Unit<DataAmount> BIT = addUnit(new AlternateUnit<>(ONE, "bit"));
+    public static final Unit<DataAmount> BIT = addUnit(new BaseUnit<>("bit", UnitDimension.parse('X')));
     public static final Unit<DataAmount> KILOBIT = addUnit(MetricPrefix.KILO(BIT));
     public static final Unit<DataAmount> MEGABIT = addUnit(MetricPrefix.MEGA(BIT));
     public static final Unit<DataAmount> GIGABIT = addUnit(MetricPrefix.GIGA(BIT));
@@ -244,9 +247,9 @@ public final class Units extends CustomUnits {
         SimpleUnitFormat.getInstance().label(GIGABIT, "Gbit");
         SimpleUnitFormat.getInstance().label(GIGABIT_PER_SECOND, "Gbit/s");
         SimpleUnitFormat.getInstance().label(IRRADIANCE, "W/m²");
-        SimpleUnitFormat.getInstance().label(KILOBYTE, "KB");
-        SimpleUnitFormat.getInstance().label(KIBIBYTE, "KiB");
-        SimpleUnitFormat.getInstance().alias(KIBIBYTE, "Kio");
+        SimpleUnitFormat.getInstance().label(KILOBYTE, "kB");
+        SimpleUnitFormat.getInstance().label(KIBIBYTE, "kiB");
+        SimpleUnitFormat.getInstance().alias(KIBIBYTE, "kio");
         SimpleUnitFormat.getInstance().label(KILOBIT, "kbit");
         SimpleUnitFormat.getInstance().label(KILOBIT_PER_SECOND, "kbit/s");
         SimpleUnitFormat.getInstance().label(KILOVAR, "kvar");
@@ -266,6 +269,7 @@ public final class Units extends CustomUnits {
         SimpleUnitFormat.getInstance().label(MILLIAMPERE_HOUR, "mAh");
         SimpleUnitFormat.getInstance().label(MILLIBAR, "mbar");
         SimpleUnitFormat.getInstance().label(MILLIMETRE_OF_MERCURY, MILLIMETRE_OF_MERCURY.getSymbol());
+        SimpleUnitFormat.getInstance().label(MIRED, "mired");
         SimpleUnitFormat.getInstance().label(PARTS_PER_BILLION, "ppb");
         SimpleUnitFormat.getInstance().label(PARTS_PER_MILLION, "ppm");
         SimpleUnitFormat.getInstance().label(PETABYTE, "PB");

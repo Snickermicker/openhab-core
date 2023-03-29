@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -19,6 +19,7 @@ import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -27,9 +28,10 @@ import org.junit.jupiter.api.Test;
  *
  * @author Henning Treu - Initial contribution
  */
+@NonNullByDefault
 public class StateDescriptionFragmentBuilderTest {
 
-    private StateDescriptionFragmentBuilder builder;
+    private @NonNullByDefault({}) StateDescriptionFragmentBuilder builder;
 
     @BeforeEach
     public void setup() {

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,11 +12,14 @@
  */
 package org.openhab.core.model.script.engine.action;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+
 /**
  * This interface must be implemented by services that want to contribute script actions.
  *
  * @author Kai Kreuzer - Initial contribution
  */
+@NonNullByDefault
 public interface ActionService {
 
     /**
@@ -34,5 +37,4 @@ public interface ActionService {
      * @return the action class
      */
     Class<?> getActionClass();
-
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -374,7 +374,7 @@ public class NumberExtensions {
     public static BigDecimal numberToBigDecimal(Number number) {
         if (number instanceof QuantityType) {
             QuantityType<?> state = ((QuantityType<?>) number)
-                    .toUnit(((QuantityType<?>) number).getUnit().getSystemUnit());
+                    .toInvertibleUnit(((QuantityType<?>) number).getUnit().getSystemUnit());
             if (state != null) {
                 return state.toBigDecimal();
             }
@@ -395,5 +395,4 @@ public class NumberExtensions {
     private static boolean isAbstractUnitOne(QuantityType<?> left) {
         return Units.ONE.equals(left.getUnit());
     }
-
 }

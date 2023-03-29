@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,6 +12,7 @@
  */
 package org.openhab.core.io.console.eclipse.internal;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.osgi.framework.console.CommandInterpreter;
 import org.openhab.core.io.console.Console;
 
@@ -20,6 +21,7 @@ import org.openhab.core.io.console.Console;
  * @author Kai Kreuzer - Initial contribution
  * @author Markus Rathgeb - Split to separate file
  */
+@NonNullByDefault
 public class OSGiConsole implements Console {
 
     private final String baseCommand;

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -17,19 +17,27 @@ import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import org.apache.maven.plugin.logging.Log;
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.openhab.core.binding.xml.internal.BindingInfoReader;
-import org.openhab.core.binding.xml.internal.BindingInfoXmlResult;
+import org.openhab.core.addon.internal.xml.AddonInfoReader;
+import org.openhab.core.addon.internal.xml.AddonInfoXmlResult;
 import org.openhab.core.config.core.ConfigDescription;
-import org.openhab.core.config.xml.internal.ConfigDescriptionReader;
+import org.openhab.core.config.core.xml.internal.ConfigDescriptionReader;
 import org.openhab.core.thing.xml.internal.ChannelGroupTypeXmlResult;
 import org.openhab.core.thing.xml.internal.ChannelTypeXmlResult;
 import org.openhab.core.thing.xml.internal.ThingDescriptionReader;
 import org.openhab.core.thing.xml.internal.ThingTypeXmlResult;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.thoughtworks.xstream.converters.ConversionException;
 
 /**
@@ -42,15 +50,19 @@ public class BundleInfoReader {
 
     private final Log log;
 
+    private final Predicate<Path> isJsonFile = path -> Files.isRegularFile(path) && path.toString().endsWith(".json");
+
     public BundleInfoReader(Log log) {
         this.log = log;
     }
 
     public BundleInfo readBundleInfo(Path ohinfPath) throws IOException {
         BundleInfo bundleInfo = new BundleInfo();
-        readBindingInfo(ohinfPath, bundleInfo);
+        readAddonInfo(ohinfPath, bundleInfo);
         readConfigInfo(ohinfPath, bundleInfo);
         readThingInfo(ohinfPath, bundleInfo);
+        readModuleTypeInfo(ohinfPath, bundleInfo);
+        readRuleTemplateInfo(ohinfPath, bundleInfo);
         return bundleInfo;
     }
 
@@ -61,19 +73,22 @@ public class BundleInfoReader {
                 : Stream.of();
     }
 
-    private void readBindingInfo(Path ohinfPath, BundleInfo bundleInfo) throws IOException {
-        BindingInfoReader reader = new BindingInfoReader();
-        xmlPathStream(ohinfPath, "binding").forEach(path -> {
-            log.info("Reading: " + path);
-            try {
-                BindingInfoXmlResult bindingInfoXml = reader.readFromXML(path.toUri().toURL());
-                if (bindingInfoXml != null) {
-                    bundleInfo.setBindingInfoXml(bindingInfoXml);
+    private void readAddonInfo(Path ohinfPath, BundleInfo bundleInfo) throws IOException {
+        AddonInfoReader reader = new AddonInfoReader();
+        try (Stream<Path> xmlPathStream = xmlPathStream(ohinfPath, "addon")) {
+            xmlPathStream.forEach(path -> {
+                log.info("Reading: " + path);
+                try {
+                    AddonInfoXmlResult bindingInfoXml = reader.readFromXML(path.toUri().toURL());
+                    if (bindingInfoXml != null) {
+                        bundleInfo.setAddonId(bindingInfoXml.addonInfo().getId());
+                        bundleInfo.setAddonInfoXml(bindingInfoXml);
+                    }
+                } catch (ConversionException | MalformedURLException e) {
+                    log.warn("Exception while reading binding info from: " + path, e);
                 }
-            } catch (ConversionException | MalformedURLException e) {
-                log.warn("Exception while reading binding info from: " + path, e);
-            }
-        });
+            });
+        }
     }
 
     private void readConfigInfo(Path ohinfPath, BundleInfo bundleInfo) throws IOException {
@@ -102,16 +117,67 @@ public class BundleInfoReader {
                 }
                 for (Object type : types) {
                     if (type instanceof ThingTypeXmlResult) {
-                        bundleInfo.getThingTypesXml().add((ThingTypeXmlResult) type);
+                        ThingTypeXmlResult result = (ThingTypeXmlResult) type;
+                        bundleInfo.getThingTypesXml().add(result);
+                        if (bundleInfo.getAddonId().isBlank()) {
+                            bundleInfo.setAddonId(result.getUID().getBindingId());
+                        }
                     } else if (type instanceof ChannelGroupTypeXmlResult) {
-                        bundleInfo.getChannelGroupTypesXml().add((ChannelGroupTypeXmlResult) type);
+                        ChannelGroupTypeXmlResult result = (ChannelGroupTypeXmlResult) type;
+                        bundleInfo.getChannelGroupTypesXml().add(result);
+                        if (bundleInfo.getAddonId().isBlank()) {
+                            bundleInfo.setAddonId(result.getUID().getBindingId());
+                        }
                     } else if (type instanceof ChannelTypeXmlResult) {
-                        bundleInfo.getChannelTypesXml().add((ChannelTypeXmlResult) type);
+                        ChannelTypeXmlResult result = (ChannelTypeXmlResult) type;
+                        bundleInfo.getChannelTypesXml().add(result);
+                        if (bundleInfo.getAddonId().isBlank()) {
+                            bundleInfo.setAddonId(result.toChannelType().getUID().getBindingId());
+                        }
                     }
                 }
             } catch (ConversionException | MalformedURLException e) {
                 log.warn("Exception while reading thing info from: " + path, e);
             }
         });
+    }
+
+    private void readModuleTypeInfo(Path ohinfPath, BundleInfo bundleInfo) throws IOException {
+        Path modulePath = ohinfPath.resolve("automation").resolve("moduletypes");
+        if (Files.exists(modulePath)) {
+            try (Stream<Path> files = Files.walk(modulePath)) {
+                List<JsonObject> moduleTypes = files.filter(isJsonFile).flatMap(this::readJsonElementsFromFile)
+                        .map(JsonElement::getAsJsonObject).collect(Collectors.toList());
+                if (!moduleTypes.isEmpty()) {
+                    bundleInfo.setModuleTypesJson(moduleTypes);
+                }
+            }
+        }
+    }
+
+    private void readRuleTemplateInfo(Path ohinfPath, BundleInfo bundleInfo) throws IOException {
+        Path template = ohinfPath.resolve("automation").resolve("templates");
+        if (Files.exists(template)) {
+            try (Stream<Path> files = Files.walk(template)) {
+                List<JsonObject> ruleTemplates = files.filter(isJsonFile).flatMap(this::readJsonElementsFromFile)
+                        .map(JsonElement::getAsJsonObject).collect(Collectors.toList());
+                if (!ruleTemplates.isEmpty()) {
+                    bundleInfo.setRuleTemplateJson(ruleTemplates);
+                }
+            }
+        }
+    }
+
+    private Stream<JsonElement> readJsonElementsFromFile(Path path) {
+        try {
+            JsonElement element = JsonParser.parseString(Files.readString(path));
+            if (element.isJsonObject()) {
+                return element.getAsJsonObject().entrySet().stream().map(Map.Entry::getValue)
+                        .filter(JsonElement::isJsonArray)
+                        .flatMap(a -> StreamSupport.stream(a.getAsJsonArray().spliterator(), false));
+            }
+        } catch (IOException ignored) {
+        }
+        return Stream.of(JsonNull.INSTANCE);
     }
 }

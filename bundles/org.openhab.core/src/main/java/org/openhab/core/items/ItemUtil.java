@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -54,7 +54,7 @@ public class ItemUtil {
      * @return true if the specified name is a valid item name, otherwise false
      */
     public static boolean isValidItemName(final @Nullable String itemName) {
-        return itemName != null && !itemName.isEmpty() && itemName.matches("[a-zA-Z0-9_]*");
+        return itemName != null && !itemName.isEmpty() && itemName.matches("[a-zA-Z_][a-zA-Z0-9_]*");
     }
 
     /**

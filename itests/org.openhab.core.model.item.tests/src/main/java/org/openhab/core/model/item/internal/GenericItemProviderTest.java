@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -16,6 +16,7 @@ import static java.util.stream.Collectors.*;
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
@@ -30,17 +31,16 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.eclipse.jdt.annotation.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.openhab.core.events.Event;
-import org.openhab.core.events.EventFilter;
 import org.openhab.core.events.EventSubscriber;
 import org.openhab.core.items.GenericItem;
 import org.openhab.core.items.GroupFunction;
 import org.openhab.core.items.GroupItem;
 import org.openhab.core.items.Item;
+import org.openhab.core.items.ItemNotFoundException;
 import org.openhab.core.items.ItemProvider;
 import org.openhab.core.items.ItemRegistry;
 import org.openhab.core.items.Metadata;
@@ -72,20 +72,20 @@ import org.slf4j.LoggerFactory;
  * @author Stefan Triller - Added test for ItemAddedEvents with multiple model files
  * @author Wouter Born - Migrate tests from Groovy to Java
  */
+@NonNullByDefault
 public class GenericItemProviderTest extends JavaOSGiTest {
 
     private static final String ITEMS_MODEL_TYPE = "items";
     private static final String TESTMODEL_NAME = "testModel.items";
     private static final String TESTMODEL_NAME2 = "testModel2.items";
 
-    private static final Collection<String> TESTMODEL_NAMES = Stream.of(TESTMODEL_NAME, TESTMODEL_NAME2)
-            .collect(Collectors.toList());
+    private static final Collection<String> TESTMODEL_NAMES = List.of(TESTMODEL_NAME, TESTMODEL_NAME2);
 
     private final Logger logger = LoggerFactory.getLogger(GenericItemProviderTest.class);
 
-    private ItemRegistry itemRegistry;
-    private MetadataRegistry metadataRegistry;
-    private ModelRepository modelRepository;
+    private @NonNullByDefault({}) ItemRegistry itemRegistry;
+    private @NonNullByDefault({}) MetadataRegistry metadataRegistry;
+    private @NonNullByDefault({}) ModelRepository modelRepository;
 
     @BeforeEach
     public void setUp() {
@@ -107,9 +107,9 @@ public class GenericItemProviderTest extends JavaOSGiTest {
      */
     @AfterEach
     public void tearDown() {
-        Collection<Item> itemsToRemove = itemRegistry.getAll();
-        List<String> modelNamesToRemove = TESTMODEL_NAMES.stream()
-                .filter(name -> modelRepository.getModel(name) != null).collect(Collectors.toList());
+        Set<String> itemNamesToRemove = itemRegistry.getAll().stream().map(Item::getName).collect(Collectors.toSet());
+        Set<String> modelNamesToRemove = TESTMODEL_NAMES.stream().filter(name -> modelRepository.getModel(name) != null)
+                .collect(Collectors.toSet());
 
         if (!modelNamesToRemove.isEmpty()) {
             Set<String> removedModelNames = new HashSet<>();
@@ -123,23 +123,18 @@ public class GenericItemProviderTest extends JavaOSGiTest {
                 }
             };
 
-            List<AbstractItemRegistryEvent> removedItemEvents = new ArrayList<>();
-            @NonNullByDefault
+            List<String> removedItemNames = new ArrayList<>();
+
             EventSubscriber itemEventSubscriber = new EventSubscriber() {
                 @Override
                 public void receive(Event event) {
                     logger.debug("Received event: {}", event);
-                    removedItemEvents.add((AbstractItemRegistryEvent) event);
+                    removedItemNames.add(((AbstractItemRegistryEvent) event).getItem().name);
                 }
 
                 @Override
                 public Set<String> getSubscribedEventTypes() {
-                    return Stream.of(ItemRemovedEvent.TYPE).collect(toSet());
-                }
-
-                @Override
-                public @Nullable EventFilter getEventFilter() {
-                    return null;
+                    return Set.of(ItemRemovedEvent.TYPE);
                 }
             };
 
@@ -149,7 +144,8 @@ public class GenericItemProviderTest extends JavaOSGiTest {
             modelNamesToRemove.forEach(modelRepository::removeModel);
 
             waitForAssert(() -> {
-                assertThat(removedItemEvents, hasSize(itemsToRemove.size()));
+                // removedItemNames can have more item names due to queued events generated in the test
+                assertTrue(removedItemNames.containsAll(itemNamesToRemove));
                 assertThat(removedModelNames, hasSize(modelNamesToRemove.size()));
             });
 
@@ -240,29 +236,23 @@ public class GenericItemProviderTest extends JavaOSGiTest {
         String model = "String test1 \"Test Item [%s]\" { channel=\"test:test:test:test\" }\n"
                 + "String test2 \"Test Item [%s]\" { channel=\"test:test:test:test\" }";
         modelRepository.addOrRefreshModel(TESTMODEL_NAME, new ByteArrayInputStream(model.getBytes()));
-
-        assertThat(itemRegistry.getAll(), hasSize(2));
+        waitForAssert(() -> assertThat(itemRegistry.getAll(), hasSize(2)));
 
         model = "String test1 \"Test Item [%s]\" { channel=\"test:test:test:test\" }\n"
                 + "String {something is wrong} test \"Test Item [%s]\" { channel=\"test:test:test:test\" }";
         modelRepository.addOrRefreshModel(TESTMODEL_NAME, new ByteArrayInputStream(model.getBytes()));
-
-        waitForAssert(() -> {
-            assertThat(itemRegistry.getAll(), hasSize(0));
-        });
+        waitForAssert(() -> assertThat(itemRegistry.getAll(), hasSize(0)));
 
         model = "String test1 \"Test Item [%s]\" { channel=\"test:test:test:test\" }\n"
                 + "String test2 \"Test Item [%s]\" { channel=\"test:test:test:test\" }";
         modelRepository.addOrRefreshModel(TESTMODEL_NAME, new ByteArrayInputStream(model.getBytes()));
-
-        assertThat(itemRegistry.getAll(), hasSize(2));
+        waitForAssert(() -> assertThat(itemRegistry.getAll(), hasSize(2)));
     }
 
     @Test
     public void assertThatItemEventsAreSentCorrectly() {
         List<AbstractItemRegistryEvent> receivedEvents = new ArrayList<>();
 
-        @NonNullByDefault
         EventSubscriber itemEventSubscriber = new EventSubscriber() {
             @Override
             public void receive(Event event) {
@@ -273,11 +263,6 @@ public class GenericItemProviderTest extends JavaOSGiTest {
             @Override
             public Set<String> getSubscribedEventTypes() {
                 return Stream.of(ItemAddedEvent.TYPE, ItemUpdatedEvent.TYPE, ItemRemovedEvent.TYPE).collect(toSet());
-            }
-
-            @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
             }
         };
 
@@ -330,7 +315,6 @@ public class GenericItemProviderTest extends JavaOSGiTest {
     public void assertThatItemEventsAreSentOnlyOncePerItemEvenWithMultipleItemFiles() {
         List<AbstractItemRegistryEvent> receivedEvents = new ArrayList<>();
 
-        @NonNullByDefault
         EventSubscriber itemEventSubscriber = new EventSubscriber() {
             @Override
             public void receive(Event event) {
@@ -341,11 +325,6 @@ public class GenericItemProviderTest extends JavaOSGiTest {
             @Override
             public Set<String> getSubscribedEventTypes() {
                 return Stream.of(ItemAddedEvent.TYPE, ItemUpdatedEvent.TYPE, ItemRemovedEvent.TYPE).collect(toSet());
-            }
-
-            @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
             }
         };
 
@@ -394,23 +373,34 @@ public class GenericItemProviderTest extends JavaOSGiTest {
                 + "String test2 \"Test Item [%s]\" { channel=\"test:test:test:test\" }\n"
                 + "String test3 \"Test Item [%s]\" { channel=\"test:test:test:test\" }";
         modelRepository.addOrRefreshModel(TESTMODEL_NAME, new ByteArrayInputStream(model.getBytes()));
-        assertThat(itemRegistry.getAll(), hasSize(3));
+        waitForAssert(() -> assertThat(itemRegistry.getAll(), hasSize(3)));
+
         Item unchangedItem = itemRegistry.getItem("test1");
 
         model = "String test1 \"Test Item [%s]\" { channel=\"test:test:test:test\" }\n"
                 + "String test2 \"Test Item Changed [%s]\" { channel=\"test:test:test:test\" }";
         modelRepository.addOrRefreshModel(TESTMODEL_NAME, new ByteArrayInputStream(model.getBytes()));
-        assertThat(itemRegistry.getAll(), hasSize(2));
-        assertThat(itemRegistry.getItem("test1"), is(unchangedItem));
+        waitForAssert(() -> {
+            assertThat(itemRegistry.getAll(), hasSize(2));
+            try {
+                assertThat(itemRegistry.getItem("test1"), is(unchangedItem));
+            } catch (ItemNotFoundException e) {
+            }
+        });
 
         model = "";
         modelRepository.addOrRefreshModel(TESTMODEL_NAME, new ByteArrayInputStream(model.getBytes()));
-        assertThat(itemRegistry.getAll(), hasSize(0));
+        waitForAssert(() -> assertThat(itemRegistry.getAll(), hasSize(0)));
 
         model = "String test1 \"Test Item [%s]\" { channel=\"test:test:test:test\" }";
         modelRepository.addOrRefreshModel(TESTMODEL_NAME, new ByteArrayInputStream(model.getBytes()));
-        assertThat(itemRegistry.getAll(), hasSize(1));
-        assertThat(itemRegistry.getItem("test1"), is(unchangedItem));
+        waitForAssert(() -> {
+            assertThat(itemRegistry.getAll(), hasSize(1));
+            try {
+                assertThat(itemRegistry.getItem("test1"), is(unchangedItem));
+            } catch (ItemNotFoundException e) {
+            }
+        });
     }
 
     @Test
@@ -590,7 +580,6 @@ public class GenericItemProviderTest extends JavaOSGiTest {
         Collection<Item> itemsToRemove = itemRegistry.getAll();
         List<AbstractItemRegistryEvent> removedItemEvents = new ArrayList<>();
 
-        @NonNullByDefault
         EventSubscriber itemEventSubscriber = new EventSubscriber() {
             @Override
             public void receive(Event event) {
@@ -601,11 +590,6 @@ public class GenericItemProviderTest extends JavaOSGiTest {
             @Override
             public Set<String> getSubscribedEventTypes() {
                 return Stream.of(ItemRemovedEvent.TYPE).collect(toSet());
-            }
-
-            @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
             }
         };
 

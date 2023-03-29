@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -19,7 +19,7 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.common.registry.RegistryChangeListener;
 
 /**
- * This class is responsible to provide a {@link RegistryChangeListener} logic. A instance of it is added to
+ * This class is responsible to provide a {@link RegistryChangeListener} logic. An instance of it is added to
  * {@link RuleRegistry} service, to listen for changes when a single {@link Rule} has been added, updated, enabled,
  * disabled or removed and to involve Rule Engine to process these changes. Also to send a {@code run} command
  * for a single {@link Rule} to the Rule Engine.

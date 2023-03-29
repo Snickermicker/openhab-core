@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -16,6 +16,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +35,7 @@ import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
  *
  * @author Robert Bach - Initial contribution
  */
+@NonNullByDefault
 public class JVMMetric implements OpenhabCoreMeterBinder {
 
     private final Logger logger = LoggerFactory.getLogger(JVMMetric.class);
@@ -47,7 +49,7 @@ public class JVMMetric implements OpenhabCoreMeterBinder {
     }
 
     @Override
-    public void bindTo(MeterRegistry registry) {
+    public void bindTo(@NonNullByDefault({}) MeterRegistry registry) {
         unbind();
         logger.debug("JVMMetric is being bound...");
         this.meterRegistry = registry;

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -32,7 +32,6 @@ import org.openhab.core.automation.RuleStatusInfo;
 import org.openhab.core.automation.Trigger;
 import org.openhab.core.common.registry.ProviderChangeListener;
 import org.openhab.core.events.Event;
-import org.openhab.core.events.EventFilter;
 import org.openhab.core.events.EventPublisher;
 import org.openhab.core.events.EventSubscriber;
 import org.openhab.core.items.Item;
@@ -53,20 +52,16 @@ import org.slf4j.LoggerFactory;
  *
  * @author Kai Kreuzer - Initial contribution
  */
-
+@NonNullByDefault
 public class ScriptRuleOSGiTest extends JavaOSGiTest {
 
     private final Logger logger = LoggerFactory.getLogger(ScriptRuleOSGiTest.class);
     private VolatileStorageService volatileStorageService = new VolatileStorageService();
 
-    private ItemCommandEvent receivedEvent;
-
-    public ScriptRuleOSGiTest() {
-    }
+    private @NonNullByDefault({}) ItemCommandEvent receivedEvent;
 
     @BeforeEach
     public void before() {
-        @NonNullByDefault
         ItemProvider itemProvider = new ItemProvider() {
             @Override
             public void addProviderChangeListener(ProviderChangeListener<Item> listener) {
@@ -96,11 +91,6 @@ public class ScriptRuleOSGiTest extends JavaOSGiTest {
             public Set<String> getSubscribedEventTypes() {
                 return Set.of(ItemCommandEvent.TYPE);
             }
-
-            @Override
-            public EventFilter getEventFilter() {
-                return null;
-            }
         };
         registerService(eventSubscriber);
     }
@@ -128,9 +118,8 @@ public class ScriptRuleOSGiTest extends JavaOSGiTest {
                 .findFirst();
         assertThat(trigger.isPresent(), is(true));
         assertThat(trigger.get().getTypeUID(), is("core.GenericEventTrigger"));
-        assertThat(trigger.get().getConfiguration().get("eventSource"), is("MyTrigger"));
-        assertThat(trigger.get().getConfiguration().get("eventTopic"), is("openhab/items/MyTrigger/state"));
-        assertThat(trigger.get().getConfiguration().get("eventTypes"), is("ItemStateEvent"));
+        assertThat(trigger.get().getConfiguration().get("topic"), is("openhab/items/MyTrigger/state"));
+        assertThat(trigger.get().getConfiguration().get("types"), is("ItemStateEvent"));
         Optional<? extends Condition> condition1 = rule.getConditions().stream()
                 .filter(c -> "condition".equals(c.getId())).findFirst();
         assertThat(condition1.isPresent(), is(true));

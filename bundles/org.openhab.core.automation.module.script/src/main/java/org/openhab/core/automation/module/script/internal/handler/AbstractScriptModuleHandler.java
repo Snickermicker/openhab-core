@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -84,6 +84,24 @@ public abstract class AbstractScriptModuleHandler<T extends Module> extends Base
         scriptEngineManager.removeEngine(engineIdentifier);
     }
 
+    /**
+     * Reset the script engine to force a script reload
+     *
+     */
+    public synchronized void resetScriptEngine() {
+        scriptEngineManager.removeEngine(engineIdentifier);
+        scriptEngine = Optional.empty();
+    }
+
+    /**
+     * Gets the script engine identifier for this module
+     *
+     * @return the engine identifier string
+     */
+    public String getEngineIdentifier() {
+        return engineIdentifier;
+    }
+
     protected Optional<ScriptEngine> getScriptEngine() {
         return scriptEngine.isPresent() ? scriptEngine : createScriptEngine();
     }
@@ -101,11 +119,11 @@ public abstract class AbstractScriptModuleHandler<T extends Module> extends Base
     }
 
     /**
-     * Adds the passed context variables of the rule engine to the context scope of the ScriptEngine, this should be
-     * updated each time the module is executed
+     * Adds the passed context variables of the rule engine to the context scope of the ScriptEngine
+     * this should be done each time the module is executed to prevent leaking context to later executions
      *
      * @param engine the script engine that is used
-     * @param context the variables and types to put into the execution context
+     * @param context the variables and types to remove from the execution context
      */
     protected void setExecutionContext(ScriptEngine engine, Map<String, ?> context) {
         ScriptContext executionContext = engine.getContext();
@@ -128,6 +146,26 @@ public abstract class AbstractScriptModuleHandler<T extends Module> extends Base
                 key = key.substring(dotIndex + 1);
             }
             executionContext.setAttribute(key, value, ScriptContext.ENGINE_SCOPE);
+        }
+    }
+
+    /**
+     * Removes passed context variables of the rule engine from the context scope of the ScriptEngine, this should be
+     * updated each time the module is executed
+     *
+     * @param engine the script engine that is used
+     * @param context the variables and types to put into the execution context
+     */
+    protected void resetExecutionContext(ScriptEngine engine, Map<String, ?> context) {
+        ScriptContext executionContext = engine.getContext();
+
+        for (Entry<String, ?> entry : context.entrySet()) {
+            String key = entry.getKey();
+            int dotIndex = key.indexOf('.');
+            if (dotIndex != -1) {
+                key = key.substring(dotIndex + 1);
+            }
+            executionContext.removeAttribute(key, ScriptContext.ENGINE_SCOPE);
         }
     }
 }

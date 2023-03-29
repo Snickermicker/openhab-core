@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,6 +12,8 @@
  */
 package org.openhab.core.addon.marketplace.internal.json.model;
 
+import java.util.List;
+
 import com.google.gson.annotations.SerializedName;
 
 /**
@@ -20,16 +22,23 @@ import com.google.gson.annotations.SerializedName;
  * @author Jan N. Klug - Initial contribution
  */
 public class AddonEntryDTO {
+    public String uid = "";
     public String id = "";
     public String type = "";
     public String description = "";
     public String title = "";
     public String link = "";
     public String version = "";
+    @SerializedName("compatible_versions")
+    public String compatibleVersions = "";
     public String author = "";
     public String configDescriptionURI = "";
     public String maturity = "unstable";
     @SerializedName("content_type")
     public String contentType = "";
+    @SerializedName("image_url")
+    public String imageUrl;
     public String url = "";
+    @SerializedName("logger_packages")
+    public List<String> loggerPackages = List.of();
 }

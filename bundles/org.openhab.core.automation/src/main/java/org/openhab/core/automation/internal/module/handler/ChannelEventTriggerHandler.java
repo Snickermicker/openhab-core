@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,8 +12,6 @@
  */
 package org.openhab.core.automation.internal.module.handler;
 
-import java.util.Dictionary;
-import java.util.Hashtable;
 import java.util.Map;
 import java.util.Set;
 
@@ -34,7 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * This is an ModuleHandler implementation for trigger channels with specific events
+ * This is a ModuleHandler implementation for trigger channels with specific events
  *
  * @author Stefan Triller - Initial contribution
  */
@@ -63,10 +61,7 @@ public class ChannelEventTriggerHandler extends BaseTriggerModuleHandler impleme
         this.types = Set.of("ChannelTriggeredEvent");
         this.bundleContext = bundleContext;
 
-        Dictionary<String, Object> properties = new Hashtable<>();
-        properties.put("event.topics", TOPIC);
-        eventSubscriberRegistration = this.bundleContext.registerService(EventSubscriber.class.getName(), this,
-                properties);
+        eventSubscriberRegistration = this.bundleContext.registerService(EventSubscriber.class.getName(), this, null);
     }
 
     @Override
@@ -81,11 +76,11 @@ public class ChannelEventTriggerHandler extends BaseTriggerModuleHandler impleme
 
     @Override
     public boolean apply(Event event) {
-        logger.trace("->FILTER: {}:{}", event.getTopic(), TOPIC);
         boolean eventMatches = false;
         if (event instanceof ChannelTriggeredEvent) {
             ChannelTriggeredEvent cte = (ChannelTriggeredEvent) event;
             if (channelUID.equals(cte.getChannel())) {
+                String eventOnChannel = this.eventOnChannel;
                 logger.trace("->FILTER: {}:{}", cte.getEvent(), eventOnChannel);
                 eventMatches = eventOnChannel == null || eventOnChannel.isBlank()
                         || eventOnChannel.equals(cte.getEvent());

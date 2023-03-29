@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -13,8 +13,7 @@
 package org.openhab.core.audio.internal.javasound;
 
 import java.io.IOException;
-
-import javax.sound.sampled.TargetDataLine;
+import java.io.InputStream;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -31,20 +30,19 @@ import org.openhab.core.audio.AudioStream;
 public class JavaSoundInputStream extends AudioStream {
 
     /**
-     * TargetDataLine for the input
+     * InputStream for the input
      */
-    private final TargetDataLine input;
+    private final InputStream input;
     private final AudioFormat format;
 
     /**
-     * Constructs a JavaSoundInputStream with the passed input
+     * Constructs a JavaSoundInputStream with the passed input and a close handler.
      *
      * @param input The mic which data is pulled from
      */
-    public JavaSoundInputStream(TargetDataLine input, AudioFormat format) {
+    public JavaSoundInputStream(InputStream input, AudioFormat format) {
         this.format = format;
         this.input = input;
-        this.input.start();
     }
 
     @Override

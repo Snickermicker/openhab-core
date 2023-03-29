@@ -11,7 +11,7 @@
 
   <groupId>org.openhab.core</groupId>
   <artifactId>org.openhab.core.reactor</artifactId>
-  <version>3.3.0-SNAPSHOT</version>
+  <version>4.0.0-SNAPSHOT</version>
 
   <packaging>pom</packaging>
 
@@ -20,7 +20,7 @@
 
   <organization>
     <name>openHAB.org</name>
-    <url>http://www.openhab.org</url>
+    <url>https://www.openhab.org</url>
   </organization>
 
   <licenses>
@@ -64,20 +64,22 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    <oh.java.version>11</oh.java.version>
+    <oh.java.version>17</oh.java.version>
     <maven.compiler.source>${oh.java.version}</maven.compiler.source>
     <maven.compiler.target>${oh.java.version}</maven.compiler.target>
     <maven.compiler.compilerVersion>${oh.java.version}</maven.compiler.compilerVersion>
 
-    <bnd.version>6.1.0</bnd.version>
+    <bnd.version>6.4.0</bnd.version>
     <commons.net.version>3.7.2</commons.net.version>
     <eea.version>2.3.0</eea.version>
-    <karaf.compile.version>4.3.0</karaf.compile.version>
-    <karaf.tooling.version>4.3.6</karaf.tooling.version>
-    <sat.version>0.12.0</sat.version>
+    <karaf.compile.version>4.4.0</karaf.compile.version>
+    <karaf.tooling.version>4.4.3</karaf.tooling.version>
+    <sat.version>0.13.0</sat.version>
     <slf4j.version>1.7.32</slf4j.version>
-    <xtext.version>2.25.0</xtext.version>
-    <spotless.version>2.0.3</spotless.version>
+    <xtext.version>2.29.0</xtext.version>
+    <spotless.version>2.35.0</spotless.version>
+    <spotless.eclipse.version>4.26</spotless.eclipse.version>
+    <spotless.eclipse.wtp.version>4.21.0</spotless.eclipse.wtp.version>
   </properties>
 
   <dependencyManagement>
@@ -274,7 +276,7 @@ Import-Package: \\
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.8.1</version>
+          <version>3.10.1</version>
           <configuration>
             <compilerId>eclipse</compilerId>
             <compilerArguments>
@@ -292,12 +294,12 @@ Import-Package: \\
             <dependency>
               <groupId>org.codehaus.plexus</groupId>
               <artifactId>plexus-compiler-eclipse</artifactId>
-              <version>2.8.8</version>
+              <version>2.12.1</version>
             </dependency>
             <dependency>
               <groupId>org.eclipse.jdt</groupId>
               <artifactId>ecj</artifactId>
-              <version>3.23.0</version>
+              <version>3.30.0</version>
             </dependency>
           </dependencies>
         </plugin>
@@ -387,8 +389,12 @@ Import-Package: \\
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
-          <version>3.0.0-M5</version>
+          <version>3.0.0-M7</version>
           <configuration>
+            <argLine>
+              --add-opens java.base/java.net=ALL-UNNAMED
+              --add-opens java.base/java.util=ALL-UNNAMED
+            </argLine>
             <systemPropertyVariables>
               <junit.jupiter.execution.timeout.default>15 m</junit.jupiter.execution.timeout.default>
             </systemPropertyVariables>
@@ -459,7 +465,7 @@ Import-Package: \\
             </excludes>
             <useDefaultExcludes>true</useDefaultExcludes>
             <properties>
-              <year>2022</year>
+              <year>2023</year>
             </properties>
             <encoding>UTF-8</encoding>
           </configuration>
@@ -472,78 +478,10 @@ Import-Package: \\
           </executions>
         </plugin>
 
-        <!-- This plugin's configuration is used to store Eclipse m2e settings only. -->
-        <!-- It has no influence on the Maven build itself. -->
-        <plugin>
-          <groupId>org.eclipse.m2e</groupId>
-          <artifactId>lifecycle-mapping</artifactId>
-          <version>1.0.0</version>
-          <configuration>
-            <lifecycleMappingMetadata>
-              <pluginExecutions>
-                <pluginExecution>
-                  <pluginExecutionFilter>
-                    <groupId>org.apache.karaf.tooling</groupId>
-                    <artifactId>karaf-maven-plugin</artifactId>
-                    <versionRange>[4.2.1,)</versionRange>
-                    <goals>
-                      <goal>features-generate-descriptor</goal>
-                      <goal>verify</goal>
-                    </goals>
-                  </pluginExecutionFilter>
-                  <action>
-                    <ignore/>
-                  </action>
-                </pluginExecution>
-                <pluginExecution>
-                  <pluginExecutionFilter>
-                    <groupId>org.codehaus.mojo</groupId>
-                    <artifactId>exec-maven-plugin</artifactId>
-                    <versionRange>[1.4.0,)</versionRange>
-                    <goals>
-                      <goal>java</goal>
-                    </goals>
-                  </pluginExecutionFilter>
-                  <action>
-                    <ignore/>
-                  </action>
-                </pluginExecution>
-                <pluginExecution>
-                  <pluginExecutionFilter>
-                    <groupId>biz.aQute.bnd</groupId>
-                    <artifactId>bnd-indexer-maven-plugin</artifactId>
-                    <versionRange>[3.1.0,)</versionRange>
-                    <goals>
-                      <goal>index</goal>
-                      <goal>local-index</goal>
-                    </goals>
-                  </pluginExecutionFilter>
-                  <action>
-                    <ignore/>
-                  </action>
-                </pluginExecution>
-                <pluginExecution>
-                  <pluginExecutionFilter>
-                    <groupId>org.commonjava.maven.plugins</groupId>
-                    <artifactId>directory-maven-plugin</artifactId>
-                    <versionRange>[0.3.1,)</versionRange>
-                    <goals>
-                      <goal>highest-basedir</goal>
-                    </goals>
-                  </pluginExecutionFilter>
-                  <action>
-                    <ignore/>
-                  </action>
-                </pluginExecution>
-              </pluginExecutions>
-            </lifecycleMappingMetadata>
-          </configuration>
-        </plugin>
-
         <plugin>
           <groupId>org.openhab.core.tools</groupId>
           <artifactId>i18n-maven-plugin</artifactId>
-          <version>3.2.0</version>
+          <version>3.3.0</version>
         </plugin>
 
         <plugin>
@@ -601,7 +539,7 @@ Import-Package: \\
             <java>
               <eclipse>
                 <file>openhab_codestyle.xml</file>
-                <version>4.13.0</version>
+                <version>${spotless.eclipse.version}</version>
               </eclipse>
               <removeUnusedImports/>
               <importOrder>
@@ -624,7 +562,7 @@ Import-Package: \\
                   <files>
                     <file>openhab_wst_xml_files.prefs</file>
                   </files>
-                  <version>4.13.0</version>
+                  <version>${spotless.eclipse.wtp.version}</version>
                 </eclipseWtp>
                 <trimTrailingWhitespace/>
                 <endWithNewline/>
@@ -639,7 +577,7 @@ Import-Package: \\
                   <files>
                     <file>openhab_wst_feature_file.prefs</file>
                   </files>
-                  <version>4.13.0</version>
+                  <version>${spotless.eclipse.wtp.version}</version>
                 </eclipseWtp>
                 <trimTrailingWhitespace/>
                 <endWithNewline/>
@@ -654,7 +592,7 @@ Import-Package: \\
                   <files>
                     <file>openhab_wst_pom_file.prefs</file>
                   </files>
-                  <version>4.13.0</version>
+                  <version>${spotless.eclipse.wtp.version}</version>
                 </eclipseWtp>
                 <trimTrailingWhitespace/>
                 <endWithNewline/>
@@ -685,7 +623,7 @@ Import-Package: \\
       <plugin>
         <groupId>org.commonjava.maven.plugins</groupId>
         <artifactId>directory-maven-plugin</artifactId>
-        <version>0.3.1</version>
+        <version>1.0</version>
         <executions>
           <execution>
             <id>directories</id>
@@ -711,7 +649,7 @@ Import-Package: \\
             <configuration>
               <rules>
                 <requireJavaVersion>
-                  <version>[11.0,12.0)</version>
+                  <version>[17.0,18.0)</version>
                 </requireJavaVersion>
               </rules>
             </configuration>
@@ -737,6 +675,87 @@ Import-Package: \\
   </build>
 
   <profiles>
+    <profile>
+      <id>eclipse-m2e</id>
+      <activation>
+        <property>
+          <name>m2e.version</name>
+        </property>
+      </activation>
+      <build>
+        <pluginManagement>
+          <plugins>
+            <!-- This plugin's configuration is used to store Eclipse m2e settings only. -->
+            <!-- It has no influence on the Maven build itself. -->
+            <plugin>
+              <groupId>org.eclipse.m2e</groupId>
+              <artifactId>lifecycle-mapping</artifactId>
+              <version>1.0.0</version>
+              <configuration>
+                <lifecycleMappingMetadata>
+                  <pluginExecutions>
+                    <pluginExecution>
+                      <pluginExecutionFilter>
+                        <groupId>org.apache.karaf.tooling</groupId>
+                        <artifactId>karaf-maven-plugin</artifactId>
+                        <versionRange>[4.2.1,)</versionRange>
+                        <goals>
+                          <goal>features-generate-descriptor</goal>
+                          <goal>verify</goal>
+                        </goals>
+                      </pluginExecutionFilter>
+                      <action>
+                        <ignore/>
+                      </action>
+                    </pluginExecution>
+                    <pluginExecution>
+                      <pluginExecutionFilter>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <versionRange>[1.4.0,)</versionRange>
+                        <goals>
+                          <goal>java</goal>
+                        </goals>
+                      </pluginExecutionFilter>
+                      <action>
+                        <ignore/>
+                      </action>
+                    </pluginExecution>
+                    <pluginExecution>
+                      <pluginExecutionFilter>
+                        <groupId>biz.aQute.bnd</groupId>
+                        <artifactId>bnd-indexer-maven-plugin</artifactId>
+                        <versionRange>[3.1.0,)</versionRange>
+                        <goals>
+                          <goal>index</goal>
+                          <goal>local-index</goal>
+                        </goals>
+                      </pluginExecutionFilter>
+                      <action>
+                        <ignore/>
+                      </action>
+                    </pluginExecution>
+                    <pluginExecution>
+                      <pluginExecutionFilter>
+                        <groupId>org.commonjava.maven.plugins</groupId>
+                        <artifactId>directory-maven-plugin</artifactId>
+                        <versionRange>[1.0,)</versionRange>
+                        <goals>
+                          <goal>highest-basedir</goal>
+                        </goals>
+                      </pluginExecutionFilter>
+                      <action>
+                        <ignore/>
+                      </action>
+                    </pluginExecution>
+                  </pluginExecutions>
+                </lifecycleMappingMetadata>
+              </configuration>
+            </plugin>
+          </plugins>
+        </pluginManagement>
+      </build>
+    </profile>
     <profile>
       <id>skip-check</id>
       <activation>

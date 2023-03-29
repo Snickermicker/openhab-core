@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -27,6 +27,8 @@ import javax.servlet.WriteListener;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,8 +36,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.openhab.core.ui.icon.IconProvider;
 import org.openhab.core.ui.icon.IconSet.Format;
-import org.osgi.service.http.HttpContext;
-import org.osgi.service.http.HttpService;
 
 /**
  * Tests for {@link IconServlet}.
@@ -44,9 +44,10 @@ import org.osgi.service.http.HttpService;
  * @author Wouter Born - Migrate tests from Groovy to Java and use Mockito
  */
 @ExtendWith(MockitoExtension.class)
+@NonNullByDefault
 public class IconServletTest {
 
-    private class ByteArrayServletOutputStream extends ServletOutputStream {
+    private static class ByteArrayServletOutputStream extends ServletOutputStream {
 
         private ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
@@ -56,7 +57,7 @@ public class IconServletTest {
         }
 
         @Override
-        public void setWriteListener(WriteListener arg0) {
+        public void setWriteListener(@Nullable WriteListener arg0) {
         }
 
         @Override
@@ -71,29 +72,26 @@ public class IconServletTest {
         public void reset() {
             outputStream.reset();
         }
-    };
+    }
 
-    private IconServlet servlet;
+    private @NonNullByDefault({}) IconServlet servlet;
     private ByteArrayServletOutputStream responseOutputStream = new ByteArrayServletOutputStream();
 
-    private @Mock HttpContext httpContextMock;
-    private @Mock HttpService httpServiceMock;
+    private @Mock @NonNullByDefault({}) HttpServletRequest requestMock;
+    private @Mock @NonNullByDefault({}) HttpServletResponse responseMock;
 
-    private @Mock HttpServletRequest requestMock;
-    private @Mock HttpServletResponse responseMock;
-
-    private @Mock IconProvider provider1Mock;
-    private @Mock IconProvider provider2Mock;
+    private @Mock @NonNullByDefault({}) IconProvider provider1Mock;
+    private @Mock @NonNullByDefault({}) IconProvider provider2Mock;
 
     @BeforeEach
     public void before() throws IOException {
-        servlet = new IconServlet(httpServiceMock, httpContextMock);
+        servlet = new IconServlet();
         responseOutputStream.reset();
     }
 
     @Test
     public void testOldUrlStyle() throws ServletException, IOException {
-        when(requestMock.getRequestURI()).thenReturn("/y-34.png");
+        when(requestMock.getRequestURI()).thenReturn("/icon/y-34.png");
 
         when(responseMock.getOutputStream()).thenReturn(responseOutputStream);
 
@@ -110,7 +108,7 @@ public class IconServletTest {
 
     @Test
     public void testPriority() throws ServletException, IOException {
-        when(requestMock.getRequestURI()).thenReturn("/x");
+        when(requestMock.getRequestURI()).thenReturn("/icon/x");
         when(requestMock.getParameter(PARAM_FORMAT)).thenReturn("svg");
         when(requestMock.getParameter(PARAM_ICONSET)).thenReturn("test");
         when(requestMock.getParameter(PARAM_STATE)).thenReturn("34");
@@ -155,7 +153,7 @@ public class IconServletTest {
 
     @Test
     public void testAnyFormatFalse() throws ServletException, IOException {
-        when(requestMock.getRequestURI()).thenReturn("/z");
+        when(requestMock.getRequestURI()).thenReturn("/icon/z");
         when(requestMock.getParameter(PARAM_FORMAT)).thenReturn("svg");
         when(requestMock.getParameter(PARAM_ANY_FORMAT)).thenReturn("false");
         when(requestMock.getParameter(PARAM_ICONSET)).thenReturn("test");
@@ -177,7 +175,7 @@ public class IconServletTest {
 
     @Test
     public void testAnyFormatSameProviders() throws ServletException, IOException {
-        when(requestMock.getRequestURI()).thenReturn("/z");
+        when(requestMock.getRequestURI()).thenReturn("/icon/z");
         when(requestMock.getParameter(PARAM_FORMAT)).thenReturn("svg");
         when(requestMock.getParameter(PARAM_ANY_FORMAT)).thenReturn("true");
         when(requestMock.getParameter(PARAM_ICONSET)).thenReturn("test");
@@ -201,7 +199,7 @@ public class IconServletTest {
 
     @Test
     public void testAnyFormatHigherPriorityOtherFormat() throws ServletException, IOException {
-        when(requestMock.getRequestURI()).thenReturn("/z");
+        when(requestMock.getRequestURI()).thenReturn("/icon/z");
         when(requestMock.getParameter(PARAM_FORMAT)).thenReturn("svg");
         when(requestMock.getParameter(PARAM_ANY_FORMAT)).thenReturn("true");
         when(requestMock.getParameter(PARAM_ICONSET)).thenReturn("test");
@@ -231,7 +229,7 @@ public class IconServletTest {
 
     @Test
     public void testAnyFormatHigherPriorityRequestedFormat() throws ServletException, IOException {
-        when(requestMock.getRequestURI()).thenReturn("/z");
+        when(requestMock.getRequestURI()).thenReturn("/icon/z");
         when(requestMock.getParameter(PARAM_FORMAT)).thenReturn("svg");
         when(requestMock.getParameter(PARAM_ANY_FORMAT)).thenReturn("true");
         when(requestMock.getParameter(PARAM_ICONSET)).thenReturn("test");
@@ -261,7 +259,7 @@ public class IconServletTest {
 
     @Test
     public void testAnyFormatNoOtherFormat() throws ServletException, IOException {
-        when(requestMock.getRequestURI()).thenReturn("/z");
+        when(requestMock.getRequestURI()).thenReturn("/icon/z");
         when(requestMock.getParameter(PARAM_FORMAT)).thenReturn("svg");
         when(requestMock.getParameter(PARAM_ANY_FORMAT)).thenReturn("true");
         when(requestMock.getParameter(PARAM_ICONSET)).thenReturn("test");
@@ -285,7 +283,7 @@ public class IconServletTest {
 
     @Test
     public void testAnyFormatNoRequestedFormat() throws ServletException, IOException {
-        when(requestMock.getRequestURI()).thenReturn("/z");
+        when(requestMock.getRequestURI()).thenReturn("/icon/z");
         when(requestMock.getParameter(PARAM_FORMAT)).thenReturn("svg");
         when(requestMock.getParameter(PARAM_ANY_FORMAT)).thenReturn("true");
         when(requestMock.getParameter(PARAM_ICONSET)).thenReturn("test");

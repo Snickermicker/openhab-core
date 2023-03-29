@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.concurrent.CompletableFuture;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.ContentResponse;
 import org.eclipse.jetty.client.api.Request;
@@ -44,27 +46,26 @@ import org.osgi.service.http.HttpService;
  * @author Henning Treu - Initial contribution
  */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.WARN)
+@MockitoSettings(strictness = Strictness.LENIENT)
+@NonNullByDefault
 public abstract class AbstractAudioServletTest extends JavaTest {
-
-    protected AudioServlet audioServlet;
-
-    private int port;
-    private TestServer server;
 
     private static final String AUDIO_SERVLET_PROTOCOL = "http";
     private static final String AUDIO_SERVLET_HOSTNAME = "localhost";
 
-    private CompletableFuture<Boolean> serverStarted;
+    protected @NonNullByDefault({}) AudioServlet audioServlet;
 
-    private HttpClient httpClient;
+    private int port;
+    private @NonNullByDefault({}) TestServer server;
+    private @NonNullByDefault({}) HttpClient httpClient;
+    private @NonNullByDefault({}) CompletableFuture<Boolean> serverStarted;
 
-    private @Mock HttpService httpServiceMock;
-    private @Mock HttpContext httpContextMock;
+    private @Mock @NonNullByDefault({}) HttpService httpServiceMock;
+    private @Mock @NonNullByDefault({}) HttpContext httpContextMock;
 
     @BeforeEach
     public void setupServerAndClient() {
-        audioServlet = new AudioServlet(httpServiceMock, httpContextMock);
+        audioServlet = new AudioServlet();
 
         ServletHolder servletHolder = new ServletHolder(audioServlet);
 
@@ -96,6 +97,11 @@ public abstract class AbstractAudioServletTest extends JavaTest {
         return getHttpRequest(url).send();
     }
 
+    protected ContentResponse getHttpResponseWithAccept(AudioStream audioStream, String acceptHeader) throws Exception {
+        String url = serveStream(audioStream);
+        return getHttpRequest(url).header("Accept", acceptHeader).send();
+    }
+
     protected String serveStream(AudioStream stream) throws Exception {
         return serveStream(stream, null);
     }
@@ -115,7 +121,7 @@ public abstract class AbstractAudioServletTest extends JavaTest {
         return httpClient.newRequest(url).method(HttpMethod.GET);
     }
 
-    protected String serveStream(AudioStream stream, Integer timeInterval) throws Exception {
+    protected String serveStream(AudioStream stream, @Nullable Integer timeInterval) throws Exception {
         serverStarted.get(); // wait for the server thread to be started
 
         String path;

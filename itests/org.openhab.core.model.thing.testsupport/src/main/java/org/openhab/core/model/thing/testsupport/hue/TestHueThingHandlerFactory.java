@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -50,11 +50,9 @@ public class TestHueThingHandlerFactory extends BaseThingHandlerFactory {
     public static final ThingTypeUID THING_TYPE_LONG_NAME = new ThingTypeUID(BINDING_ID,
             "1-thing-id-with-5-dashes_and_3_underscores");
 
-    public static final Set<ThingTypeUID> SUPPORTED_BRIDGE_TYPES = Stream.of(THING_TYPE_BRIDGE)
-            .collect(Collectors.toSet());
-    public static final Set<ThingTypeUID> SUPPORTED_THING_TYPES = Stream
-            .of(THING_TYPE_LCT001, THING_TYPE_SENSOR, THING_TYPE_TEST, THING_TYPE_LONG_NAME, THING_TYPE_GROUPED)
-            .collect(Collectors.toSet());
+    public static final Set<ThingTypeUID> SUPPORTED_BRIDGE_TYPES = Set.of(THING_TYPE_BRIDGE);
+    public static final Set<ThingTypeUID> SUPPORTED_THING_TYPES = Set.of(THING_TYPE_LCT001, THING_TYPE_SENSOR,
+            THING_TYPE_TEST, THING_TYPE_LONG_NAME, THING_TYPE_GROUPED);
     public static final Set<ThingTypeUID> SUPPORTED_TYPES = Stream
             .concat(SUPPORTED_BRIDGE_TYPES.stream(), SUPPORTED_THING_TYPES.stream()).collect(Collectors.toSet());
 

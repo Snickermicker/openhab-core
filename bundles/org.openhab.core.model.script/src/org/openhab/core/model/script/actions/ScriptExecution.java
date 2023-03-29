@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -14,24 +14,29 @@ package org.openhab.core.model.script.actions;
 
 import java.time.ZonedDateTime;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.xtext.xbase.XExpression;
-import org.eclipse.xtext.xbase.lib.Procedures.Procedure0;
-import org.eclipse.xtext.xbase.lib.Procedures.Procedure1;
+import org.eclipse.xtext.xbase.lib.Procedures;
 import org.openhab.core.model.core.ModelRepository;
 import org.openhab.core.model.script.ScriptServiceUtil;
 import org.openhab.core.model.script.engine.Script;
 import org.openhab.core.model.script.engine.ScriptEngine;
 import org.openhab.core.model.script.engine.ScriptExecutionException;
-import org.openhab.core.model.script.internal.actions.TimerImpl;
-import org.openhab.core.scheduler.Scheduler;
+import org.openhab.core.model.script.engine.action.ActionDoc;
+import org.openhab.core.model.script.internal.engine.action.ScriptExecutionActionService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * The static methods of this class are made available as functions in the scripts.
- * This allows a script to call another script, which is available as a file.
+ * The {@link ScriptExecution} is a wrapper for the ScriptExecution actions
  *
- * @author Kai Kreuzer - Initial contribution
+ * @author Jan N. Klug - Initial contribution
  */
+@NonNullByDefault
 public class ScriptExecution {
+
+    private static final Logger logger = LoggerFactory.getLogger(ScriptExecution.class);
 
     /**
      * Calls a script which must be located in the configurations/scripts folder.
@@ -42,6 +47,7 @@ public class ScriptExecution {
      * @return the return value of the script
      * @throws ScriptExecutionException if an error occurs during the execution
      */
+    @ActionDoc(text = "call a script file")
     public static Object callScript(String scriptName) throws ScriptExecutionException {
         ModelRepository repo = ScriptServiceUtil.getModelRepository();
         if (repo != null) {
@@ -66,39 +72,29 @@ public class ScriptExecution {
         }
     }
 
-    /**
-     * Schedules a block of code for later execution.
-     *
-     * @param instant the point in time when the code should be executed
-     * @param closure the code block to execute
-     *
-     * @return a handle to the created timer, so that it can be canceled or rescheduled
-     * @throws ScriptExecutionException if an error occurs during the execution
-     */
-    public static Timer createTimer(ZonedDateTime instant, Procedure0 closure) {
-        Scheduler scheduler = ScriptServiceUtil.getScheduler();
-
-        return new TimerImpl(scheduler, instant, () -> {
-            closure.apply();
-        });
+    @ActionDoc(text = "create a timer")
+    public static Timer createTimer(ZonedDateTime zonedDateTime, Procedures.Procedure0 closure) {
+        return new Timer(ScriptExecutionActionService.getScriptExecution().createTimer(zonedDateTime, closure::apply));
     }
 
-    /**
-     * Schedules a block of code (with argument) for later execution
-     *
-     * @param instant the point in time when the code should be executed
-     * @param arg1 the argument to pass to the code block
-     * @param closure the code block to execute
-     *
-     * @return a handle to the created timer, so that it can be canceled or rescheduled
-     * @throws ScriptExecutionException if an error occurs during the execution
-     */
-    public static Timer createTimerWithArgument(ZonedDateTime instant, Object arg1, Procedure1<Object> closure) {
-        Scheduler scheduler = ScriptServiceUtil.getScheduler();
-
-        return new TimerImpl(scheduler, instant, () -> {
-            closure.apply(arg1);
-        });
+    @ActionDoc(text = "create an identifiable timer ")
+    public static Timer createTimer(@Nullable String identifier, ZonedDateTime zonedDateTime,
+            Procedures.Procedure0 closure) {
+        return new Timer(ScriptExecutionActionService.getScriptExecution().createTimer(identifier, zonedDateTime,
+                closure::apply));
     }
 
+    @ActionDoc(text = "create a timer with argument")
+    public static Timer createTimerWithArgument(ZonedDateTime zonedDateTime, Object arg1,
+            Procedures.Procedure1 closure) {
+        return new Timer(ScriptExecutionActionService.getScriptExecution().createTimerWithArgument(zonedDateTime, arg1,
+                closure::apply));
+    }
+
+    @ActionDoc(text = "create an identifiable timer with argument")
+    public static Timer createTimerWithArgument(@Nullable String identifier, ZonedDateTime zonedDateTime, Object arg1,
+            Procedures.Procedure1 closure) {
+        return new Timer(ScriptExecutionActionService.getScriptExecution().createTimerWithArgument(identifier,
+                zonedDateTime, arg1, closure::apply));
+    }
 }

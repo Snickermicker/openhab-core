@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -14,9 +14,11 @@ package org.openhab.core.io.transport.mqtt;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.core.io.transport.mqtt.MqttBrokerConnection.MqttVersion;
+import org.openhab.core.io.transport.mqtt.MqttBrokerConnection.Protocol;
 
 /**
- * Contains configuration for a MqttBrokerConnection. Necessary to add a new broker connection the {@link MqttService}.
+ * Contains configuration for a MqttBrokerConnection.
  *
  * @author David Graeff - Initial contribution
  * @author Mark Herwege - Added flag for hostname validation
@@ -30,6 +32,9 @@ public class MqttBrokerConnectionConfig {
     public @Nullable Integer port;
     public boolean secure = true;
     public boolean hostnameValidated = true;
+    // Protocol parameters
+    public Protocol protocol = MqttBrokerConnection.DEFAULT_PROTOCOL;
+    public MqttVersion mqttVersion = MqttBrokerConnection.DEFAULT_MQTT_VERSION;
     // Authentication parameters
     public @Nullable String username;
     public @Nullable String password;
@@ -53,7 +58,7 @@ public class MqttBrokerConnectionConfig {
         if (name != null && name.length() > 0) {
             return name;
         } else {
-            StringBuffer b = new StringBuffer();
+            StringBuilder b = new StringBuilder();
             if (host != null) {
                 b.append(host);
             }
@@ -74,7 +79,7 @@ public class MqttBrokerConnectionConfig {
      */
     @Override
     public String toString() {
-        StringBuffer b = new StringBuffer();
+        StringBuilder b = new StringBuilder();
         if (name != null) {
             b.append(name);
             b.append(", ");

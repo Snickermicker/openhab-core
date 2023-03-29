@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,8 +12,9 @@
  */
 package org.openhab.core.config.core.internal.validation;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.config.core.ConfigDescriptionParameter;
-import org.openhab.core.config.core.ConfigDescriptionParameter.Type;
 import org.openhab.core.config.core.internal.validation.TypeIntrospections.TypeIntrospection;
 import org.openhab.core.config.core.validation.ConfigValidationMessage;
 
@@ -23,24 +24,21 @@ import org.openhab.core.config.core.validation.ConfigValidationMessage;
  *
  * @author Thomas Höfer - Initial contribution
  */
+@NonNullByDefault
 final class TypeValidator implements ConfigDescriptionParameterValidator {
 
     @Override
-    public ConfigValidationMessage validate(ConfigDescriptionParameter parameter, Object value) {
+    public @Nullable ConfigValidationMessage validate(ConfigDescriptionParameter parameter, @Nullable Object value) {
         if (value == null) {
             return null;
         }
 
         TypeIntrospection typeIntrospection = TypeIntrospections.get(parameter.getType());
         if (!typeIntrospection.isAssignable(value)) {
-            return createDataTypeViolationMessage(parameter.getName(), parameter.getType());
+            return new ConfigValidationMessage(parameter.getName(), MessageKey.DATA_TYPE_VIOLATED.defaultMessage,
+                    MessageKey.DATA_TYPE_VIOLATED.key, value.getClass(), parameter.getType());
         }
 
         return null;
-    }
-
-    private static ConfigValidationMessage createDataTypeViolationMessage(String parameterName, Type type) {
-        return new ConfigValidationMessage(parameterName, MessageKey.DATA_TYPE_VIOLATED.defaultMessage,
-                MessageKey.DATA_TYPE_VIOLATED.key, type);
     }
 }

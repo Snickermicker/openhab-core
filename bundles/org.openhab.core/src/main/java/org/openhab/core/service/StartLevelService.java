@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -68,7 +68,7 @@ import org.slf4j.LoggerFactory;
  *
  */
 @NonNullByDefault
-@Component(immediate = true, configurationPid = "org.openhab.startlevel", configurationPolicy = ConfigurationPolicy.REQUIRE)
+@Component(immediate = true, service = StartLevelService.class, configurationPid = "org.openhab.startlevel", configurationPolicy = ConfigurationPolicy.REQUIRE)
 public class StartLevelService {
 
     public static final String STARTLEVEL_MARKER_TYPE = "startlevel";
@@ -172,11 +172,14 @@ public class StartLevelService {
         // clean up
         slmarker.clear();
         trackers.values().forEach(t -> readyService.unregisterTracker(t));
+        trackers.clear();
 
         // set up trackers and markers
         startlevels = parseConfig(configuration);
         startlevels.keySet()
                 .forEach(sl -> slmarker.put(sl, new ReadyMarker(STARTLEVEL_MARKER_TYPE, Integer.toString(sl))));
+        slmarker.put(STARTLEVEL_COMPLETE,
+                new ReadyMarker(STARTLEVEL_MARKER_TYPE, Integer.toString(STARTLEVEL_COMPLETE)));
         startlevels.values().stream().forEach(ms -> ms.forEach(e -> registerTracker(e)));
     }
 

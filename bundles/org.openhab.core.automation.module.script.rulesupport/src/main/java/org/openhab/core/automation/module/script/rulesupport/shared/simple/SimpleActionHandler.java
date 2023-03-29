@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -14,6 +14,7 @@ package org.openhab.core.automation.module.script.rulesupport.shared.simple;
 
 import java.util.Map;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.core.automation.Action;
 import org.openhab.core.automation.module.script.rulesupport.shared.ScriptedHandler;
 
@@ -21,6 +22,7 @@ import org.openhab.core.automation.module.script.rulesupport.shared.ScriptedHand
  *
  * @author Simon Merschjohann - Initial contribution
  */
+@NonNullByDefault
 public abstract class SimpleActionHandler implements ScriptedHandler {
     public void init(Action module) {
     }

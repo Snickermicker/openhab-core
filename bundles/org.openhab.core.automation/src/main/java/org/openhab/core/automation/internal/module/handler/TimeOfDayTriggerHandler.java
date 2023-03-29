@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -14,6 +14,8 @@ package org.openhab.core.automation.internal.module.handler;
 
 import java.text.MessageFormat;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.automation.ModuleHandlerCallback;
 import org.openhab.core.automation.Trigger;
 import org.openhab.core.automation.handler.BaseTriggerModuleHandler;
@@ -27,11 +29,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * This is an ModuleHandler implementation for Triggers which trigger the rule
+ * This is a ModuleHandler implementation for Triggers which trigger the rule
  * at a specific time (format 'hh:mm').
  *
  * @author Kai Kreuzer - Initial contribution
  */
+@NonNullByDefault
 public class TimeOfDayTriggerHandler extends BaseTriggerModuleHandler
         implements SchedulerRunnable, TimeBasedTriggerHandler {
 
@@ -44,7 +47,7 @@ public class TimeOfDayTriggerHandler extends BaseTriggerModuleHandler
 
     private final CronScheduler scheduler;
     private final String expression;
-    private ScheduledCompletableFuture<?> schedule;
+    private @Nullable ScheduledCompletableFuture<?> schedule;
 
     public TimeOfDayTriggerHandler(Trigger module, CronScheduler scheduler) {
         super(module);
@@ -54,7 +57,7 @@ public class TimeOfDayTriggerHandler extends BaseTriggerModuleHandler
     }
 
     /**
-     * Creates an cron-Expression from the configured time.
+     * Creates a cron-Expression from the configured time.
      */
     private static String buildExpressionFromConfigurationTime(String time) {
         try {
@@ -80,7 +83,7 @@ public class TimeOfDayTriggerHandler extends BaseTriggerModuleHandler
     @Override
     public void run() {
         if (callback != null) {
-            ((TriggerHandlerCallback) callback).triggered(module, null);
+            ((TriggerHandlerCallback) callback).triggered(module);
         } else {
             logger.debug("Tried to trigger, but callback isn't available!");
         }

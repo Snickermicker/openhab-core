@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -15,6 +15,8 @@ package org.openhab.core.voice.internal;
 import java.util.Locale;
 import java.util.Set;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.voice.text.HumanLanguageInterpreter;
 import org.openhab.core.voice.text.InterpretationException;
 
@@ -27,55 +29,69 @@ import org.openhab.core.voice.text.InterpretationException;
  *
  * @author Velin Yordanov - migrated from groovy to java
  */
+@NonNullByDefault
 public class HumanLanguageInterpreterStub implements HumanLanguageInterpreter {
 
+    private static final Set<Locale> SUPPORTED_LOCALES = Set.of(Locale.ENGLISH);
+
     private static final String INTERPRETED_TEXT = "Interpreted text";
-    private static final String EXCEPTION_MESSAGE = "Exception message";
+    private static final String EXCEPTION_MESSAGE = "interpretation exception";
 
     private static final String HLI_STUB_ID = "HLIStubID";
     private static final String HLI_STUB_LABEL = "HLIStubLabel";
 
-    private boolean isInterpretationExceptionExpected;
+    private boolean exceptionExpected;
+    private String question = "";
+    private String answer = "";
 
     @Override
     public String getId() {
         return HLI_STUB_ID;
     }
 
-    public void setIsInterpretationExceptionExpected(boolean value) {
-        isInterpretationExceptionExpected = value;
-    }
-
     @Override
-    public String getLabel(Locale locale) {
+    public String getLabel(@Nullable Locale locale) {
         return HLI_STUB_LABEL;
     }
 
     @Override
     public String interpret(Locale locale, String text) throws InterpretationException {
-        if (isInterpretationExceptionExpected) {
+        question = text;
+        if (exceptionExpected) {
             throw new InterpretationException(EXCEPTION_MESSAGE);
         } else {
-            return INTERPRETED_TEXT;
+            answer = INTERPRETED_TEXT;
+            return answer;
         }
     }
 
     @Override
-    public String getGrammar(Locale locale, String format) {
+    public @Nullable String getGrammar(Locale locale, String format) {
         // This method will not be used in the tests
         return null;
     }
 
     @Override
     public Set<Locale> getSupportedLocales() {
-        // This method will not be used in the tests
-        return null;
+        return SUPPORTED_LOCALES;
     }
 
     @Override
     public Set<String> getSupportedGrammarFormats() {
         // This method will not be used in the tests
-        return null;
+        return Set.of();
+    }
+
+    public void setExceptionExpected(boolean exceptionExpected) {
+        this.exceptionExpected = exceptionExpected;
+    }
+
+    public String getQuestion() {
+        return question;
+    }
+
+    public String getAnswer() {
+        return answer;
     }
 
     @Override

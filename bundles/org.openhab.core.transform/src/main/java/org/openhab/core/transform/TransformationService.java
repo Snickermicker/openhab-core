@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -38,7 +38,7 @@ public interface TransformationService {
     /**
      * Transforms the input <code>source</code> by means of the given <code>function</code> and returns the transformed
      * output. The transformation may return <code>null</code> to express its operation resulted in a <code>null</code>
-     * output. In case of any error an {@link TransformationException} should be thrown.
+     * output. In case of any error a {@link TransformationException} should be thrown.
      *
      * @param function the function to be used to transform the input
      * @param source the input to be transformed

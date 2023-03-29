@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -16,6 +16,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.function.Consumer;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.hamcrest.core.IsEqual;
 import org.junit.jupiter.api.Test;
 import org.openhab.core.common.AbstractUID;
@@ -25,6 +26,7 @@ import org.openhab.core.common.AbstractUID;
  *
  * @author Markus Rathgeb - Initial contribution
  */
+@NonNullByDefault
 public class UIDUtilsTest {
 
     @Test

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -33,7 +33,6 @@ import org.openhab.core.common.AbstractUID;
 import org.openhab.core.common.SafeCaller;
 import org.openhab.core.common.registry.RegistryChangeListener;
 import org.openhab.core.events.Event;
-import org.openhab.core.events.EventFilter;
 import org.openhab.core.events.EventPublisher;
 import org.openhab.core.events.EventSubscriber;
 import org.openhab.core.items.Item;
@@ -41,6 +40,7 @@ import org.openhab.core.items.ItemFactory;
 import org.openhab.core.items.ItemRegistry;
 import org.openhab.core.items.ItemStateConverter;
 import org.openhab.core.items.ItemUtil;
+import org.openhab.core.items.events.AbstractItemRegistryEvent;
 import org.openhab.core.items.events.ItemCommandEvent;
 import org.openhab.core.items.events.ItemStateEvent;
 import org.openhab.core.library.items.NumberItem;
@@ -51,6 +51,7 @@ import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingRegistry;
 import org.openhab.core.thing.ThingUID;
+import org.openhab.core.thing.events.AbstractThingRegistryEvent;
 import org.openhab.core.thing.events.ChannelTriggeredEvent;
 import org.openhab.core.thing.events.ThingEventFactory;
 import org.openhab.core.thing.internal.link.ItemChannelLinkConfigDescriptionProvider;
@@ -61,6 +62,7 @@ import org.openhab.core.thing.link.ItemChannelLinkRegistry;
 import org.openhab.core.thing.profiles.Profile;
 import org.openhab.core.thing.profiles.ProfileAdvisor;
 import org.openhab.core.thing.profiles.ProfileCallback;
+import org.openhab.core.thing.profiles.ProfileContext;
 import org.openhab.core.thing.profiles.ProfileFactory;
 import org.openhab.core.thing.profiles.ProfileTypeUID;
 import org.openhab.core.thing.profiles.StateProfile;
@@ -176,11 +178,6 @@ public class CommunicationManager implements EventSubscriber, RegistryChangeList
     }
 
     @Override
-    public @Nullable EventFilter getEventFilter() {
-        return null;
-    }
-
-    @Override
     public void receive(Event event) {
         if (event instanceof ItemStateEvent) {
             receiveUpdate((ItemStateEvent) event);
@@ -188,6 +185,18 @@ public class CommunicationManager implements EventSubscriber, RegistryChangeList
             receiveCommand((ItemCommandEvent) event);
         } else if (event instanceof ChannelTriggeredEvent) {
             receiveTrigger((ChannelTriggeredEvent) event);
+        } else if (event instanceof AbstractItemRegistryEvent) {
+            String itemName = ((AbstractItemRegistryEvent) event).getItem().name;
+            profiles.entrySet().removeIf(entry -> {
+                ItemChannelLink link = itemChannelLinkRegistry.get(entry.getKey());
+                return link != null && itemName.equals(link.getItemName());
+            });
+        } else if (event instanceof AbstractThingRegistryEvent) {
+            ThingUID thingUid = new ThingUID(((AbstractThingRegistryEvent) event).getThing().UID);
+            profiles.entrySet().removeIf(entry -> {
+                ItemChannelLink link = itemChannelLinkRegistry.get(entry.getKey());
+                return link != null && thingUid.equals(link.getLinkedUID().getThingUID());
+            });
         }
     }
 
@@ -275,7 +284,24 @@ public class CommunicationManager implements EventSubscriber, RegistryChangeList
 
     private @Nullable Profile getProfileFromFactories(ProfileTypeUID profileTypeUID, ItemChannelLink link,
             ProfileCallback callback) {
-        ProfileContextImpl context = new ProfileContextImpl(link.getConfiguration());
+        ProfileContext context = null;
+
+        Item item = getItem(link.getItemName());
+        Thing thing = getThing(link.getLinkedUID().getThingUID());
+        if (item != null && thing != null) {
+            Channel channel = thing.getChannel(link.getLinkedUID());
+            if (channel != null) {
+                context = new ProfileContextImpl(link.getConfiguration(), item.getAcceptedDataTypes(),
+                        item.getAcceptedCommandTypes(), acceptedCommandTypeMap.getOrDefault(
+                                Objects.requireNonNullElse(channel.getAcceptedItemType(), ""), List.of()));
+            }
+        }
+
+        if (context == null) {
+            logger.debug("Could not create full channel context, item or channel missing in registry.");
+            return null;
+        }
+
         if (supportsProfileTypeUID(defaultProfileFactory, profileTypeUID)) {
             logger.trace("Using the default ProfileFactory to create profile '{}' for link '{}'", profileTypeUID, link);
             return defaultProfileFactory.createProfile(profileTypeUID, callback, context);
@@ -479,6 +505,14 @@ public class CommunicationManager implements EventSubscriber, RegistryChangeList
 
     private @Nullable QuantityType<?> convertToQuantityType(DecimalType originalType, Item item,
             @Nullable String acceptedItemType) {
+        if (!(item instanceof NumberItem)) {
+            // PercentType command sent via DimmerItem to a channel that's dimensioned
+            // (such as Number:Dimensionless, expecting a %).
+            // We can't know the proper units to add, so just pass it through and assume
+            // The binding can deal with it.
+            return null;
+        }
+
         NumberItem numberItem = (NumberItem) item;
 
         // DecimalType command sent via a NumberItem with dimension:

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -218,6 +218,9 @@ public class AnnotatedActionModuleTypeProvider extends BaseModuleHandlerFactory 
                         false);
                 if (finalMI != null) {
                     ActionType moduleType = helper.buildModuleType(module.getTypeUID(), moduleInformation);
+                    if (moduleType == null) {
+                        return null;
+                    }
                     return new AnnotationActionHandler(actionModule, moduleType, finalMI.getMethod(),
                             finalMI.getActionProvider());
                 }

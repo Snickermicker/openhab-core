@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,10 +12,10 @@
  */
 package org.openhab.core.model.thing.valueconverter;
 
-import org.openhab.core.model.core.valueconverter.ValueTypeToStringConverter;
 import org.eclipse.xtext.common.services.DefaultTerminalConverters;
 import org.eclipse.xtext.conversion.IValueConverter;
 import org.eclipse.xtext.conversion.ValueConverter;
+import org.openhab.core.model.core.valueconverter.ValueTypeToStringConverter;
 
 import com.google.inject.Inject;
 
@@ -36,5 +36,4 @@ public class ThingValueConverters extends DefaultTerminalConverters {
     public IValueConverter<String> UID() {
         return uidToStringConverter;
     }
-
 }

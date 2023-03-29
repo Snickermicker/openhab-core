@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -28,11 +28,12 @@ import org.eclipse.xtext.serializer.analysis.ISyntacticSequencerPDAProvider.ISyn
 public class ThingSyntacticSequencerExtension extends ThingSyntacticSequencer {
 
     @Override
-    protected void emit_ModelThing_ThingKeyword_0_q(EObject semanticObject, ISynNavigable transition, List<INode> nodes) {
-        ILeafNode node = nodes != null && nodes.size() == 1 && nodes.get(0) instanceof ILeafNode ? (ILeafNode) nodes
-                .get(0) : null;
+    protected void emit_ModelThing_ThingKeyword_0_q(EObject semanticObject, ISynNavigable transition,
+            List<INode> nodes) {
+        ILeafNode node = nodes != null && nodes.size() == 1 && nodes.get(0) instanceof ILeafNode
+                ? (ILeafNode) nodes.get(0)
+                : null;
         Keyword keyword = grammarAccess.getModelThingAccess().getThingKeyword_0();
         acceptUnassignedKeyword(keyword, keyword.getValue(), node);
     }
-
 }

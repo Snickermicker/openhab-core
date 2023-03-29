@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,6 +12,8 @@
  */
 package org.openhab.core.voice.internal;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.io.console.Console;
 
 /**
@@ -23,9 +25,10 @@ import org.openhab.core.io.console.Console;
  * @author Mihaela Memova - Initial contribution
  * @author Velin Yordanov - migrated from groovy to java
  */
+@NonNullByDefault
 public class ConsoleStub implements Console {
 
-    private String printedText;
+    private @Nullable String printedText;
     private boolean isPrintUsagesMethodCalled;
 
     @Override
@@ -43,7 +46,7 @@ public class ConsoleStub implements Console {
         isPrintUsagesMethodCalled = true;
     }
 
-    public String getPrintedText() {
+    public @Nullable String getPrintedText() {
         return printedText;
     }
 

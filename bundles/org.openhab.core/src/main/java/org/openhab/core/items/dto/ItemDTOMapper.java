@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -27,7 +27,7 @@ import org.openhab.core.items.ItemUtil;
 import org.openhab.core.types.State;
 
 /**
- * The {@link ItemDTOMapper} is an utility class to map items into item data transfer objects (DTOs).
+ * The {@link ItemDTOMapper} is a utility class to map items into item data transfer objects (DTOs).
  *
  * @author Kai Kreuzer - Initial contribution
  * @author Stefan Bußweiler - Moved to core and renamed class to DTO mapper

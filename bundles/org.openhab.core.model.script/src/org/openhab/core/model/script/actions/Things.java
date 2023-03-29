@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,9 +12,9 @@
  */
 package org.openhab.core.model.script.actions;
 
+import org.openhab.core.model.script.internal.engine.action.ThingActionService;
 import org.openhab.core.thing.ThingStatusInfo;
 import org.openhab.core.thing.binding.ThingActions;
-import org.openhab.core.model.script.internal.engine.action.ThingActionService;
 
 /**
  * This class provides static methods that can be used in automation rules for

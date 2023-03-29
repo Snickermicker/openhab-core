@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -27,8 +27,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import javax.imageio.ImageIO;
 import javax.imageio.stream.ImageOutputStream;
+import javax.servlet.Servlet;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -36,19 +38,19 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.config.core.ConfigurableService;
 import org.openhab.core.i18n.TimeZoneProvider;
-import org.openhab.core.io.http.servlet.OpenHABServlet;
 import org.openhab.core.items.ItemNotFoundException;
 import org.openhab.core.ui.chart.ChartProvider;
 import org.osgi.framework.Constants;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
-import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Modified;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.osgi.service.component.annotations.ReferencePolicy;
-import org.osgi.service.http.HttpContext;
-import org.osgi.service.http.HttpService;
+import org.osgi.service.http.whiteboard.propertytypes.HttpWhiteboardServletName;
+import org.osgi.service.http.whiteboard.propertytypes.HttpWhiteboardServletPattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This servlet generates time-series charts for a given set of items. It
@@ -68,11 +70,13 @@ import org.osgi.service.http.HttpService;
  * @author Chris Jackson - Initial contribution
  * @author Holger Reichert - Support for themes, DPI, legend hiding
  */
-@NonNullByDefault
-@Component(immediate = true, service = ChartServlet.class, configurationPid = "org.openhab.chart", //
+@Component(immediate = true, service = { ChartServlet.class, Servlet.class }, configurationPid = "org.openhab.chart", //
         property = Constants.SERVICE_PID + "=org.openhab.chart")
 @ConfigurableService(category = "system", label = "Charts", description_uri = ChartServlet.CONFIG_URI)
-public class ChartServlet extends OpenHABServlet {
+@HttpWhiteboardServletName(ChartServlet.SERVLET_PATH)
+@HttpWhiteboardServletPattern(ChartServlet.SERVLET_PATH + "/*")
+@NonNullByDefault
+public class ChartServlet extends HttpServlet {
 
     private static final long serialVersionUID = 7700873790924746422L;
 
@@ -81,6 +85,8 @@ public class ChartServlet extends OpenHABServlet {
     private static final int CHART_WIDTH = 480;
     private static final String DATE_FORMAT = "yyyyMMddHHmm";
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern(DATE_FORMAT);
+
+    private final Logger logger = LoggerFactory.getLogger(ChartServlet.class);
 
     private final TimeZoneProvider timeZoneProvider;
 
@@ -91,7 +97,7 @@ public class ChartServlet extends OpenHABServlet {
     private int maxWidth = -1;
 
     // The URI of this servlet
-    public static final String SERVLET_NAME = "/chart";
+    public static final String SERVLET_PATH = "/chart";
 
     private static final Duration DEFAULT_PERIOD = Duration.ofDays(1);
 
@@ -108,9 +114,7 @@ public class ChartServlet extends OpenHABServlet {
     protected static final Map<String, ChartProvider> CHART_PROVIDERS = new ConcurrentHashMap<>();
 
     @Activate
-    public ChartServlet(final @Reference HttpService httpService, final @Reference HttpContext httpContext,
-            final @Reference TimeZoneProvider timeZoneProvider) {
-        super(httpService, httpContext);
+    public ChartServlet(final @Reference TimeZoneProvider timeZoneProvider) {
         this.timeZoneProvider = timeZoneProvider;
     }
 
@@ -129,13 +133,7 @@ public class ChartServlet extends OpenHABServlet {
 
     @Activate
     protected void activate(Map<String, Object> config) {
-        super.activate(SERVLET_NAME);
         applyConfig(config);
-    }
-
-    @Deactivate
-    protected void deactivate() {
-        super.deactivate(SERVLET_NAME);
     }
 
     @Modified
@@ -300,6 +298,8 @@ public class ChartServlet extends OpenHABServlet {
             }
         }
 
+        String yAxisDecimalPattern = req.getParameter("yAxisDecimalPattern");
+
         // Read out parameter 'legend'
         String legendParam = req.getParameter("legend");
         Boolean legend = null;
@@ -318,7 +318,8 @@ public class ChartServlet extends OpenHABServlet {
         logger.debug("chart building with width {} height {} dpi {}", width, height, dpi);
         try {
             BufferedImage chart = provider.createChart(serviceName, req.getParameter("theme"), timeBegin, timeEnd,
-                    height, width, req.getParameter("items"), req.getParameter("groups"), dpi, legend);
+                    height, width, req.getParameter("items"), req.getParameter("groups"), dpi, yAxisDecimalPattern,
+                    legend);
             // Set the content type to that provided by the chart provider
             res.setContentType("image/" + provider.getChartType());
             try (ImageOutputStream imageOutputStream = ImageIO.createImageOutputStream(res.getOutputStream())) {

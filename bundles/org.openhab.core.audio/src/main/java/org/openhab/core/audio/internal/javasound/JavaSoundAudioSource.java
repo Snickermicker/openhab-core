@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,11 +12,18 @@
  */
 package org.openhab.core.audio.internal.javasound;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InterruptedIOException;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 
 import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.DataLine;
 import javax.sound.sampled.TargetDataLine;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -25,18 +32,24 @@ import org.openhab.core.audio.AudioException;
 import org.openhab.core.audio.AudioFormat;
 import org.openhab.core.audio.AudioSource;
 import org.openhab.core.audio.AudioStream;
+import org.openhab.core.common.ThreadPoolManager;
 import org.osgi.service.component.annotations.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This is an AudioSource from an input channel of the host.
  *
  * @author Kelly Davis - Initial contribution and API
  * @author Kai Kreuzer - Refactored and stabilized
+ * @author Miguel Álvarez - Share microphone line only under Windows OS
  *
  */
 @NonNullByDefault
 @Component(service = AudioSource.class, immediate = true)
 public class JavaSoundAudioSource implements AudioSource {
+
+    private final Logger logger = LoggerFactory.getLogger(JavaSoundAudioSource.class);
 
     /**
      * Java Sound audio format
@@ -50,42 +63,164 @@ public class JavaSoundAudioSource implements AudioSource {
     private final AudioFormat audioFormat = convertAudioFormat(format);
 
     /**
-     * TargetDataLine for the mic
+     * Running on Windows OS
+     */
+    private final boolean windowsOS = System.getProperty("os.name", "Unknown").startsWith("Win");
+
+    /**
+     * TargetDataLine for sharing the mic on Windows OS due to limitations
      */
     private @Nullable TargetDataLine microphone;
+
+    /**
+     * Set for control microphone sharing on Windows OS
+     */
+    private final ConcurrentLinkedQueue<PipedOutputStream> openStreamRefs = new ConcurrentLinkedQueue<>();
+
+    /**
+     * Task for writing microphone data to each of the open sources on Windows OS
+     */
+    private @Nullable Future<?> pipeWriteTask;
+
+    private final ScheduledExecutorService executor;
 
     /**
      * Constructs a JavaSoundAudioSource
      */
     public JavaSoundAudioSource() {
+        executor = ThreadPoolManager.getScheduledPool("OH-core-javasound-source");
     }
 
     private TargetDataLine initMicrophone(javax.sound.sampled.AudioFormat format) throws AudioException {
         try {
             TargetDataLine microphone = AudioSystem.getTargetDataLine(format);
-
-            DataLine.Info info = new DataLine.Info(TargetDataLine.class, format);
-            microphone = (TargetDataLine) AudioSystem.getLine(info);
-
             microphone.open(format);
-
-            this.microphone = microphone;
             return microphone;
         } catch (Exception e) {
-            throw new AudioException("Error creating the audio input stream.", e);
+            throw new AudioException("Error creating the audio input stream: " + e.getMessage(), e);
         }
     }
 
     @Override
-    public synchronized AudioStream getInputStream(AudioFormat expectedFormat) throws AudioException {
+    public AudioStream getInputStream(AudioFormat expectedFormat) throws AudioException {
         if (!expectedFormat.isCompatible(audioFormat)) {
             throw new AudioException("Cannot produce streams in format " + expectedFormat);
         }
-        TargetDataLine mic = this.microphone;
-        if (mic == null) {
-            mic = initMicrophone(format);
+        // on OSs other than windows we can open multiple lines for the microphone
+        if (!windowsOS) {
+            TargetDataLine microphone = initMicrophone(format);
+            var inputStream = new JavaSoundInputStream(new InputStream() {
+                @Override
+                public int read() throws IOException {
+                    return microphone.available();
+                }
+
+                @Override
+                public int read(byte @Nullable [] b, int off, int len) throws IOException {
+                    return microphone.read(b, off, len);
+                }
+
+                @Override
+                public void close() throws IOException {
+                    microphone.close();
+                }
+            }, audioFormat);
+            microphone.start();
+            return inputStream;
         }
-        return new JavaSoundInputStream(mic, audioFormat);
+        // on Windows OS we share the microphone line
+        synchronized (openStreamRefs) {
+            TargetDataLine microphone = this.microphone;
+            if (microphone == null) {
+                microphone = initMicrophone(format);
+                this.microphone = microphone;
+            }
+            var pipedOutputStream = new PipedOutputStream();
+            PipedInputStream pipedInputStream;
+            try {
+                pipedInputStream = new PipedInputStream(pipedOutputStream, 1024 * 10) {
+                    @Override
+                    public void close() throws IOException {
+                        unregisterPipe(pipedOutputStream);
+                        super.close();
+                    }
+                };
+            } catch (IOException ie) {
+                throw new AudioException("Cannot open stream pipe: " + ie.getMessage());
+            }
+            openStreamRefs.add(pipedOutputStream);
+            var inputStream = new JavaSoundInputStream(pipedInputStream, audioFormat);
+            microphone.start();
+            startPipeWrite();
+            return inputStream;
+        }
+    }
+
+    private void startPipeWrite() {
+        if (this.pipeWriteTask == null) {
+            this.pipeWriteTask = executor.submit(() -> {
+                int lengthRead;
+                byte[] buffer = new byte[1024];
+                while (!openStreamRefs.isEmpty()) {
+                    TargetDataLine stream = this.microphone;
+                    if (stream != null) {
+                        try {
+                            lengthRead = stream.read(buffer, 0, buffer.length);
+                            for (PipedOutputStream output : openStreamRefs) {
+                                try {
+                                    output.write(buffer, 0, lengthRead);
+                                    if (openStreamRefs.contains(output)) {
+                                        output.flush();
+                                    }
+                                } catch (InterruptedIOException e) {
+                                    if (openStreamRefs.isEmpty()) {
+                                        // task has been ended while writing
+                                        return;
+                                    }
+                                    logger.warn("InterruptedIOException while writing to source pipe: {}",
+                                            e.getMessage());
+                                } catch (IOException e) {
+                                    logger.warn("IOException while writing to source pipe: {}", e.getMessage());
+                                } catch (RuntimeException e) {
+                                    logger.warn("RuntimeException while writing to source pipe: {}", e.getMessage());
+                                }
+                            }
+                        } catch (RuntimeException e) {
+                            logger.warn("RuntimeException while reading from JavaSound source: {}", e.getMessage());
+                        }
+                    } else {
+                        logger.warn("Unable access to microphone stream");
+                    }
+                }
+                this.pipeWriteTask = null;
+            });
+        }
+    }
+
+    private void unregisterPipe(PipedOutputStream pipedOutputStream) {
+        synchronized (openStreamRefs) {
+            openStreamRefs.remove(pipedOutputStream);
+            try {
+                Thread.sleep(0);
+            } catch (InterruptedException ignored) {
+            }
+            if (openStreamRefs.isEmpty()) {
+                Future<?> pipeWriteTask = this.pipeWriteTask;
+                if (pipeWriteTask != null) {
+                    pipeWriteTask.cancel(true);
+                    this.pipeWriteTask = null;
+                }
+                TargetDataLine microphone = this.microphone;
+                if (microphone != null) {
+                    microphone.close();
+                    this.microphone = null;
+                }
+            }
+            try {
+                pipedOutputStream.close();
+            } catch (IOException ignored) {
+            }
+        }
     }
 
     @Override
@@ -94,7 +229,7 @@ public class JavaSoundAudioSource implements AudioSource {
     }
 
     /**
-     * Converts a javax.sound.sampled.AudioFormat to a org.openhab.core.audio.AudioFormat
+     * Converts a javax.sound.sampled.AudioFormat to an org.openhab.core.audio.AudioFormat
      *
      * @param audioFormat the AudioFormat to convert
      * @return The converted AudioFormat

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.openhab.core.config.core.Configuration;
@@ -44,22 +45,23 @@ import com.google.gson.reflect.TypeToken;
  * @author Stefan Triller - Initial contribution
  * @author Samie Salonen - test for ensuring ordering of keys in json
  */
+@NonNullByDefault
 public class JsonStorageTest extends JavaTest {
 
-    private JsonStorage<DummyObject> objectStorage;
-    private File tmpFile;
+    private @NonNullByDefault({}) JsonStorage<DummyObject> objectStorage;
+    private @NonNullByDefault({}) File tmpFile;
 
     @BeforeEach
     public void setUp() throws IOException {
         tmpFile = File.createTempFile("storage-debug", ".json");
         tmpFile.deleteOnExit();
-        objectStorage = new JsonStorage<>(tmpFile, this.getClass().getClassLoader(), 0, 0, 0);
+        objectStorage = new JsonStorage<>(tmpFile, this.getClass().getClassLoader(), 0, 0, 0, List.of());
     }
 
     private void persistAndReadAgain() {
         objectStorage.flush();
         waitForAssert(() -> {
-            objectStorage = new JsonStorage<>(tmpFile, this.getClass().getClassLoader(), 0, 0, 0);
+            objectStorage = new JsonStorage<>(tmpFile, this.getClass().getClassLoader(), 0, 0, 0, List.of());
             DummyObject dummy = objectStorage.get("DummyObject");
             assertNotNull(dummy);
             assertNotNull(dummy.configuration);
@@ -135,7 +137,7 @@ public class JsonStorageTest extends JavaTest {
         persistAndReadAgain();
         String storageString1 = Files.readString(tmpFile.toPath());
 
-        objectStorage = new JsonStorage<>(tmpFile, this.getClass().getClassLoader(), 0, 0, 0);
+        objectStorage = new JsonStorage<>(tmpFile, this.getClass().getClassLoader(), 0, 0, 0, List.of());
         objectStorage.flush();
         String storageString2 = Files.readString(tmpFile.toPath());
 
@@ -164,7 +166,7 @@ public class JsonStorageTest extends JavaTest {
         assertEquals(storageStringAB, storageStringBA);
 
         {
-            objectStorage = new JsonStorage<>(tmpFile, this.getClass().getClassLoader(), 0, 0, 0);
+            objectStorage = new JsonStorage<>(tmpFile, this.getClass().getClassLoader(), 0, 0, 0, List.of());
             objectStorage.flush();
         }
         String storageStringReserialized = Files.readString(tmpFile.toPath());
@@ -207,7 +209,7 @@ public class JsonStorageTest extends JavaTest {
                         orderedMap.getAsJsonObject("DummyObject").getAsJsonObject("value")
                                 .getAsJsonObject("innerMapWithComparableKeys"),
                         TypeToken.getParameterized(LinkedHashMap.class, Integer.class, Object.class).getType()))
-                                .keySet().toArray());
+                        .keySet().toArray());
     }
 
     private static class DummyObject {
@@ -245,17 +247,21 @@ public class JsonStorageTest extends JavaTest {
             innerSetWithComparableElements.add(50);
             innerSetWithComparableElements.add(-5);
 
-            try {
-                innerMapWithNonComparableKeys.put(new URL("http://www.example.com/key2"), 1);
-                innerMapWithNonComparableKeys.put(new URL("http://www.example.com/key1"), 2);
-                innerMapWithNonComparableKeys.put(new URL("http://www.example.com/key3"), 3);
+            innerMapWithNonComparableKeys.put(newURL("http://www.example.com/key2"), 1);
+            innerMapWithNonComparableKeys.put(newURL("http://www.example.com/key1"), 2);
+            innerMapWithNonComparableKeys.put(newURL("http://www.example.com/key3"), 3);
 
-                innerSetWithNonComparableElements.add(new URL("http://www.example.com/key2"));
-                innerSetWithNonComparableElements.add(new URL("http://www.example.com/key1"));
-                innerSetWithNonComparableElements.add(new URL("http://www.example.com/key3"));
-            } catch (MalformedURLException e) {
-                throw new RuntimeException(e);
-            }
+            innerSetWithNonComparableElements.add(newURL("http://www.example.com/key2"));
+            innerSetWithNonComparableElements.add(newURL("http://www.example.com/key1"));
+            innerSetWithNonComparableElements.add(newURL("http://www.example.com/key3"));
+        }
+    }
+
+    private static URL newURL(String url) {
+        try {
+            return new URL(url);
+        } catch (MalformedURLException e) {
+            throw new IllegalArgumentException(e);
         }
     }
 

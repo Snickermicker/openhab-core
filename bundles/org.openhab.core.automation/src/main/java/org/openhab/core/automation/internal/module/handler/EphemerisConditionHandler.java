@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -64,20 +64,20 @@ public class EphemerisConditionHandler extends BaseModuleHandler<Condition> impl
 
     @Override
     public boolean isSatisfiedAt(ZonedDateTime time) {
-        time = time.plusDays(offset); // Apply offset to time
+        ZonedDateTime offsetTime = time.plusDays(offset); // Apply offset to time
         switch (module.getTypeUID()) {
             case HOLIDAY_MODULE_TYPE_ID:
-                return ephemerisManager.isBankHoliday(time);
+                return ephemerisManager.isBankHoliday(offsetTime);
             case NOT_HOLIDAY_MODULE_TYPE_ID:
-                return !ephemerisManager.isBankHoliday(time);
+                return !ephemerisManager.isBankHoliday(offsetTime);
             case WEEKEND_MODULE_TYPE_ID:
-                return ephemerisManager.isWeekend(time);
+                return ephemerisManager.isWeekend(offsetTime);
             case WEEKDAY_MODULE_TYPE_ID:
-                return !ephemerisManager.isWeekend(time);
+                return !ephemerisManager.isWeekend(offsetTime);
             case DAYSET_MODULE_TYPE_ID:
                 final String dayset = this.dayset;
                 if (dayset != null) {
-                    return ephemerisManager.isInDayset(dayset, time);
+                    return ephemerisManager.isInDayset(dayset, offsetTime);
                 }
                 break;
         }

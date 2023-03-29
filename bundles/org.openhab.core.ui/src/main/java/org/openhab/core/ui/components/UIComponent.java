@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * An UIComponent represents a piece of UI element for a client frontend to render; it is kept very simple and delegates
+ * A UIComponent represents a piece of UI element for a client frontend to render; it is kept very simple and delegates
  * the actual rendering and behavior to the frontend.
  *
  * It has a reference to a component's name as defined by the frontend, a map of configuration parameters, and several
@@ -76,7 +76,7 @@ public class UIComponent {
     /**
      * Sets the type of the component.
      *
-     * @return the component type
+     * @param component the component type
      */
     public void setComponent(String component) {
         this.component = component;

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -18,6 +18,7 @@ import java.nio.file.Paths;
 import java.util.Properties;
 import java.util.regex.Pattern;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.osgi.framework.FrameworkUtil;
 
 /**
@@ -25,6 +26,7 @@ import org.osgi.framework.FrameworkUtil;
  *
  * @author Kai Kreuzer - Initial contribution
  */
+@NonNullByDefault
 public class OpenHAB {
 
     /** The program argument name for setting the user data directory path */

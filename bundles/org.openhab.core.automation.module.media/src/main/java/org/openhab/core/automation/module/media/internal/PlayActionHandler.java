@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -26,7 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * This is an ModuleHandler implementation for Actions that play a sound file from the file system.
+ * This is a ModuleHandler implementation for Actions that play a sound file from the file system.
  *
  * @author Kai Kreuzer - Initial contribution
  * @author Christoph Weitkamp - Added parameter volume

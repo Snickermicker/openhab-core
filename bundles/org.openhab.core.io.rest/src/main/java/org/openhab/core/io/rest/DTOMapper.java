@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -14,12 +14,17 @@ package org.openhab.core.io.rest;
 
 import java.util.stream.Stream;
 
+import org.eclipse.jdt.annotation.NonNull;
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
+
 /**
  * Utilities for mapping/transforming DTOs.
  *
  * @author Simon Kaufmann - Initial contribution
  */
+@NonNullByDefault
 public interface DTOMapper {
 
-    <T> Stream<T> limitToFields(Stream<T> itemStream, String fields);
+    <@NonNull T> Stream<T> limitToFields(Stream<T> itemStream, @Nullable String fields);
 }

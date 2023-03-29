@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -37,7 +37,7 @@ public interface UpnpIOParticipant {
 
     /**
      * Called when the UPNP IO service is unable to poll the UDN of the participant, given that
-     * a addStatusListener is registered.
+     * an addStatusListener is registered.
      *
      * @param status false, if the poll fails when the polling was previously successful; true if the poll succeeds
      *            when the polling was previously failing

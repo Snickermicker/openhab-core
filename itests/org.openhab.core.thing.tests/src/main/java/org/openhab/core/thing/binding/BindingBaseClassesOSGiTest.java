@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -18,9 +18,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.*;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -29,6 +29,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -56,6 +58,8 @@ import org.openhab.core.config.core.validation.ConfigValidationException;
 import org.openhab.core.events.Event;
 import org.openhab.core.events.EventFilter;
 import org.openhab.core.events.EventSubscriber;
+import org.openhab.core.events.TopicEventFilter;
+import org.openhab.core.i18n.LocaleProvider;
 import org.openhab.core.i18n.TranslationProvider;
 import org.openhab.core.library.CoreItemFactory;
 import org.openhab.core.test.java.JavaOSGiTest;
@@ -73,12 +77,14 @@ import org.openhab.core.thing.binding.builder.BridgeBuilder;
 import org.openhab.core.thing.binding.builder.ChannelBuilder;
 import org.openhab.core.thing.binding.builder.ThingBuilder;
 import org.openhab.core.thing.binding.builder.ThingStatusInfoBuilder;
+import org.openhab.core.thing.testutil.i18n.DefaultLocaleSetter;
 import org.openhab.core.thing.type.ThingType;
 import org.openhab.core.thing.type.ThingTypeBuilder;
 import org.openhab.core.thing.type.ThingTypeRegistry;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
 import org.osgi.framework.Bundle;
+import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 
 /**
@@ -90,27 +96,39 @@ import org.osgi.service.component.ComponentContext;
  * @author Wouter Born - Migrate tests from Groovy to Java
  */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.WARN)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @SuppressWarnings("null")
+@NonNullByDefault
 public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
 
+    private static final URI BINDING_CONFIG_URI = URI.create("test:test");
     private static final String BINDING_ID = "testBinding";
     private static final String THING_TYPE_ID = "testThingType";
     private static final ThingTypeUID THING_TYPE_UID = new ThingTypeUID(BINDING_ID, THING_TYPE_ID);
 
-    private ManagedThingProvider managedThingProvider;
-    private ThingRegistry thingRegistry;
+    private @NonNullByDefault({}) ManagedThingProvider managedThingProvider;
+    private @NonNullByDefault({}) ThingRegistry thingRegistry;
+    private @NonNullByDefault({}) ConfigurationAdmin configurationAdmin;
 
-    private @Mock ComponentContext componentContext;
+    private @Mock @NonNullByDefault({}) ComponentContext componentContextMock;
 
     @BeforeEach
-    public void beforeEach() {
+    public void beforeEach() throws IOException {
+        configurationAdmin = getService(ConfigurationAdmin.class);
+        assertNotNull(configurationAdmin);
+
+        LocaleProvider localeProvider = getService(LocaleProvider.class);
+        assertThat(localeProvider, is(notNullValue()));
+
+        new DefaultLocaleSetter(configurationAdmin).setDefaultLocale(Locale.ENGLISH);
+        waitForAssert(() -> assertThat(localeProvider.getLocale(), is(Locale.ENGLISH)));
+
         registerVolatileStorageService();
         managedThingProvider = getService(ManagedThingProvider.class);
         assertThat(managedThingProvider, is(notNullValue()));
         thingRegistry = getService(ThingRegistry.class);
         assertThat(thingRegistry, is(notNullValue()));
-        when(componentContext.getBundleContext()).thenReturn(bundleContext);
+        when(componentContextMock.getBundleContext()).thenReturn(bundleContext);
     }
 
     @AfterEach
@@ -127,7 +145,7 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
         }
 
         @Override
-        protected ThingHandler createHandler(Thing thing) {
+        protected @Nullable ThingHandler createHandler(Thing thing) {
             ThingHandler handler = (thing instanceof Bridge) ? new SimpleBridgeHandler((Bridge) thing)
                     : new SimpleThingHandler(thing);
             handlers.add(handler);
@@ -139,7 +157,7 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
         }
     }
 
-    class SimpleThingHandler extends BaseThingHandler {
+    static class SimpleThingHandler extends BaseThingHandler {
 
         SimpleThingHandler(Thing thing) {
             super(thing);
@@ -148,12 +166,17 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
         @Override
         public void handleCommand(ChannelUID channelUID, Command command) {
             // check getBridge works
-            assertThat(getBridge().getUID().toString(), is("bindingId:type1:bridgeId"));
+            assertThat(getBridge().getUID().toString(), is(BINDING_ID + ":type1:bridgeId"));
         }
 
         @Override
         public void initialize() {
             updateStatus(ThingStatus.ONLINE);
+        }
+
+        @Override
+        public void updateConfiguration(Configuration configuration) {
+            super.updateConfiguration(configuration);
         }
     }
 
@@ -180,15 +203,20 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
     @Test
     public void assertBaseThingHandlerFactoryRegistersHandlerAndBaseThingHandlersGetBridgeWorks() {
         SimpleThingHandlerFactory thingHandlerFactory = new SimpleThingHandlerFactory();
-        thingHandlerFactory.activate(componentContext);
+        thingHandlerFactory.activate(componentContextMock);
         registerService(thingHandlerFactory, ThingHandlerFactory.class.getName());
 
-        ThingTypeUID bridgeTypeUID = new ThingTypeUID("bindingId:type1");
-        ThingUID bridgeUID = new ThingUID("bindingId:type1:bridgeId");
+        ThingTypeUID bridgeTypeUID = new ThingTypeUID(BINDING_ID, "type1");
+        ThingTypeUID thingTypeUID = new ThingTypeUID(BINDING_ID, "type2");
+
+        ThingType bridgeType = ThingTypeBuilder.instance(bridgeTypeUID, "bridge").buildBridge();
+        ThingType thingType = ThingTypeBuilder.instance(thingTypeUID, "thing").build();
+        registerThingTypeProvider(bridgeType, thingType);
+
+        ThingUID bridgeUID = new ThingUID(BINDING_ID, "type1", "bridgeId");
         Bridge bridge = BridgeBuilder.create(bridgeTypeUID, bridgeUID).build();
 
-        ThingTypeUID thingTypeUID = new ThingTypeUID("bindingId:type2");
-        ThingUID thingUID = new ThingUID("bindingId:type2:thingId");
+        ThingUID thingUID = new ThingUID(BINDING_ID, "type2", "thingId");
         Thing thing = ThingBuilder.create(thingTypeUID, thingUID).withBridge(bridge.getUID()).build();
 
         managedThingProvider.add(bridge);
@@ -211,21 +239,23 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
         });
 
         // the assertion is in handle command
-        handler.handleCommand(new ChannelUID("bindingId:type2:thingId:channel"), RefreshType.REFRESH);
+        handler.handleCommand(new ChannelUID(thingUID, "thingId", "channel"), RefreshType.REFRESH);
 
         unregisterService(ThingHandlerFactory.class.getName());
-        thingHandlerFactory.deactivate(componentContext);
+        thingHandlerFactory.deactivate(componentContextMock);
     }
 
     @Test
     public void assertBaseThingHandlerFactoryRegistersConfigStatusProvider() {
         ConfigStatusProviderThingHandlerFactory thingHandlerFactory = new ConfigStatusProviderThingHandlerFactory();
-        thingHandlerFactory.activate(componentContext);
+        thingHandlerFactory.activate(componentContextMock);
         registerService(thingHandlerFactory, ThingHandlerFactory.class.getName());
+        registerDefaultThingTypeAndConfigDescription();
 
-        ThingTypeUID thingTypeUID = new ThingTypeUID("bindingId:type");
-        ThingUID thingUID = new ThingUID("bindingId:type:thingId");
-        Thing thing = ThingBuilder.create(thingTypeUID, thingUID).build();
+        ThingTypeUID thingTypeUID = new ThingTypeUID(BINDING_ID, THING_TYPE_ID);
+        ThingUID thingUID = new ThingUID(thingTypeUID, "thingId");
+        Thing thing = ThingBuilder.create(thingTypeUID, thingUID)
+                .withConfiguration(new Configuration(Map.of("parameter", ""))).build();
 
         managedThingProvider.add(thing);
 
@@ -237,12 +267,12 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
         assertThat(configStatusProviderOsgiService, is(handler));
 
         unregisterService(ThingHandlerFactory.class.getName());
-        thingHandlerFactory.deactivate(componentContext);
+        thingHandlerFactory.deactivate(componentContextMock);
     }
 
-    class ConfigStatusInfoEventSubscriber implements EventSubscriber {
+    static class ConfigStatusInfoEventSubscriber implements EventSubscriber {
         private final ThingUID thingUID;
-        private Event receivedEvent;
+        private @Nullable Event receivedEvent;
 
         ConfigStatusInfoEventSubscriber(ThingUID thingUID) {
             this.thingUID = thingUID;
@@ -254,14 +284,9 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
         }
 
         @Override
-        public EventFilter getEventFilter() {
-            return new EventFilter() {
-                @Override
-                public boolean apply(Event event) {
-                    return event.getTopic().equals(
-                            "openhab/things/{thingUID}/config/status".replace("{thingUID}", thingUID.getAsString()));
-                };
-            };
+        public @Nullable EventFilter getEventFilter() {
+            return new TopicEventFilter(
+                    "openhab/things/{thingUID}/config/status".replace("{thingUID}", thingUID.getAsString()));
         }
 
         @Override
@@ -269,7 +294,7 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
             this.receivedEvent = event;
         }
 
-        public Event getReceivedEvent() {
+        public @Nullable Event getReceivedEvent() {
             return receivedEvent;
         }
 
@@ -281,12 +306,14 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
     @Test
     public void assertConfigStatusIsPropagated() throws Exception {
         ConfigStatusProviderThingHandlerFactory thingHandlerFactory = new ConfigStatusProviderThingHandlerFactory();
-        thingHandlerFactory.activate(componentContext);
+        thingHandlerFactory.activate(componentContextMock);
         registerService(thingHandlerFactory, ThingHandlerFactory.class.getName());
+        registerDefaultThingTypeAndConfigDescription();
 
-        ThingTypeUID thingTypeUID = new ThingTypeUID("bindingId:type");
-        ThingUID thingUID = new ThingUID("bindingId:type:thingId");
-        Thing thing = ThingBuilder.create(thingTypeUID, thingUID).build();
+        ThingTypeUID thingTypeUID = new ThingTypeUID(BINDING_ID, THING_TYPE_ID);
+        ThingUID thingUID = new ThingUID(thingTypeUID, "thingId");
+        Thing thing = ThingBuilder.create(thingTypeUID, thingUID)
+                .withConfiguration(new Configuration(Map.of("parameter", "ok"))).build();
 
         managedThingProvider.add(thing);
 
@@ -296,7 +323,7 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
         when(translationProvider.getText(nullable(Bundle.class), nullable(String.class), nullable(String.class),
                 nullable(Locale.class), nullable(Object[].class))).then(new Answer<String>() {
                     @Override
-                    public String answer(InvocationOnMock invocation) throws Throwable {
+                    public @Nullable String answer(InvocationOnMock invocation) throws Throwable {
                         String key = (String) invocation.getArgument(1);
                         return key.endsWith("param.invalid") ? "param invalid" : "param ok";
                     }
@@ -311,35 +338,35 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
 
         Thread.sleep(2000);
 
-        thing.getHandler().handleConfigurationUpdate(Map.of("param", "invalid"));
+        thing.getHandler().handleConfigurationUpdate(Map.of("parameter", "invalid"));
 
         waitForAssert(() -> {
             Event event = eventSubscriber.getReceivedEvent();
             assertThat(event, is(notNullValue()));
-            assertThat(event.getPayload(), CoreMatchers
-                    .containsString("\"parameterName\":\"param\",\"type\":\"ERROR\",\"message\":\"param invalid\"}"));
+            assertThat(event.getPayload(), CoreMatchers.containsString(
+                    "\"parameterName\":\"parameter\",\"type\":\"ERROR\",\"message\":\"param invalid\"}"));
             eventSubscriber.resetReceivedEvent();
         }, 2500, DFL_SLEEP_TIME);
 
-        thing.getHandler().handleConfigurationUpdate(Map.of("param", "ok"));
+        thing.getHandler().handleConfigurationUpdate(Map.of("parameter", "ok"));
 
         waitForAssert(() -> {
             Event event = eventSubscriber.getReceivedEvent();
             assertThat(event, is(notNullValue()));
-            assertThat(event.getPayload(), CoreMatchers
-                    .containsString("\"parameterName\":\"param\",\"type\":\"INFORMATION\",\"message\":\"param ok\"}"));
+            assertThat(event.getPayload(), CoreMatchers.containsString(
+                    "\"parameterName\":\"parameter\",\"type\":\"INFORMATION\",\"message\":\"param ok\"}"));
         }, 2500, DFL_SLEEP_TIME);
     }
 
     @Test
     public void assertBaseThingHandlerNotifiesThingManagerAboutConfigurationUpdates() {
         // register ThingTypeProvider & ConfigurationDescription with 'required' parameter
-        registerThingTypeProvider();
+        registerDefaultThingTypeProvider();
         registerConfigDescriptionProvider(true);
 
         // register thing handler factory
         SimpleThingHandlerFactory thingHandlerFactory = new SimpleThingHandlerFactory();
-        thingHandlerFactory.activate(componentContext);
+        thingHandlerFactory.activate(componentContextMock);
         registerService(thingHandlerFactory, ThingHandlerFactory.class.getName());
 
         ThingUID thingUID = new ThingUID(THING_TYPE_UID, "thingId");
@@ -350,7 +377,8 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
 
         // ThingHandler.initialize() has not been called; thing with status UNINITIALIZED.HANDLER_CONFIGURATION_PENDING
         ThingStatusInfo uninitialized = ThingStatusInfoBuilder
-                .create(ThingStatus.UNINITIALIZED, ThingStatusDetail.HANDLER_CONFIGURATION_PENDING).build();
+                .create(ThingStatus.UNINITIALIZED, ThingStatusDetail.HANDLER_CONFIGURATION_PENDING)
+                .withDescription("{parameter=The parameter is required.}").build();
         assertThat(thing.getStatusInfo(), is(uninitialized));
 
         thingRegistry.updateConfiguration(thingUID, Map.of("parameter", "value"));
@@ -362,7 +390,7 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
         }, 4000, DFL_SLEEP_TIME);
     }
 
-    class ConfigStatusProviderThingHandlerFactory extends BaseThingHandlerFactory {
+    static class ConfigStatusProviderThingHandlerFactory extends BaseThingHandlerFactory {
 
         @Override
         public boolean supportsThingType(ThingTypeUID thingTypeUID) {
@@ -370,14 +398,14 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
         }
 
         @Override
-        protected ThingHandler createHandler(Thing thing) {
+        protected @Nullable ThingHandler createHandler(Thing thing) {
             return new ConfigStatusProviderThingHandler(thing);
         }
     }
 
     static class ConfigStatusProviderThingHandler extends ConfigStatusThingHandler {
 
-        private static final String PARAM = "param";
+        private static final String PARAM = "parameter";
         private static final ConfigStatusMessage ERROR = ConfigStatusMessage.Builder.error(PARAM)
                 .withMessageKeySuffix("param.invalid").build();
         private static final ConfigStatusMessage INFO = ConfigStatusMessage.Builder.information(PARAM)
@@ -414,12 +442,12 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
         }
 
         @Override
-        protected ThingHandler createHandler(Thing thing) {
+        protected @Nullable ThingHandler createHandler(Thing thing) {
             return new YetAnotherThingHandler(thing);
         }
     }
 
-    class YetAnotherThingHandler extends BaseThingHandler {
+    static class YetAnotherThingHandler extends BaseThingHandler {
 
         YetAnotherThingHandler(Thing thing) {
             super(thing);
@@ -429,7 +457,7 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
         public void initialize() {
             ThingBuilder thingBuilder = editThing();
             thingBuilder.withChannel(
-                    ChannelBuilder.create(new ChannelUID("bindingId:type:thingId:1"), CoreItemFactory.STRING).build());
+                    ChannelBuilder.create(new ChannelUID(thing.getUID(), "1"), CoreItemFactory.STRING).build());
             updateThing(thingBuilder.build());
             updateStatus(ThingStatus.ONLINE);
         }
@@ -443,21 +471,11 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
             configuration.put("key", "value");
             updateConfiguration(configuration);
         }
-
-        public void updateProperties(String value) {
-            Map<String, String> properties = editProperties();
-            properties.put(Thing.PROPERTY_MODEL_ID, value);
-            updateProperties(properties);
-        }
-
-        public void updateProperty(String value) {
-            updateProperty(Thing.PROPERTY_VENDOR, value);
-        }
     }
 
-    class ThingRegistryChangeListener implements RegistryChangeListener<Thing> {
+    static class ThingRegistryChangeListener implements RegistryChangeListener<Thing> {
         private boolean updated;
-        private Thing thing;
+        private @Nullable Thing thing;
 
         @Override
         public void added(Thing thing) {
@@ -477,25 +495,28 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
             return updated;
         }
 
-        public Thing getThing() {
+        public @Nullable Thing getThing() {
             return thing;
         }
     };
 
     @Test
     public void assertThingCanBeUpdatedFromThingHandler() {
-        registerThingTypeProvider();
+        registerDefaultThingTypeProvider();
         YetAnotherThingHandlerFactory thingHandlerFactory = new YetAnotherThingHandlerFactory();
-        thingHandlerFactory.activate(componentContext);
+        thingHandlerFactory.activate(componentContextMock);
         registerService(thingHandlerFactory, ThingHandlerFactory.class.getName());
 
         final ThingRegistryChangeListener listener = new ThingRegistryChangeListener();
 
+        registerDefaultThingTypeAndConfigDescription();
+
         try {
             thingRegistry.addRegistryChangeListener(listener);
-            ThingTypeUID thingTypeUID = new ThingTypeUID("bindingId:type");
-            ThingUID thingUID = new ThingUID("bindingId:type:thingId");
-            Thing thing = ThingBuilder.create(thingTypeUID, thingUID).build();
+            ThingTypeUID thingTypeUID = new ThingTypeUID(BINDING_ID, THING_TYPE_ID);
+            ThingUID thingUID = new ThingUID(thingTypeUID, "thingId");
+            Thing thing = ThingBuilder.create(thingTypeUID, thingUID)
+                    .withConfiguration(new Configuration(Map.of("parameter", ""))).build();
             assertThat(thing.getChannels().size(), is(0));
             managedThingProvider.add(thing);
 
@@ -513,17 +534,20 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
 
     @Test
     public void assertPropertiesCanBeUpdatedFromThingHandler() {
-        registerThingTypeProvider();
+        registerDefaultThingTypeProvider();
         YetAnotherThingHandlerFactory thingHandlerFactory = new YetAnotherThingHandlerFactory();
-        thingHandlerFactory.activate(componentContext);
+        thingHandlerFactory.activate(componentContextMock);
         registerService(thingHandlerFactory, ThingHandlerFactory.class.getName());
+        registerDefaultThingTypeAndConfigDescription();
 
         final ThingRegistryChangeListener listener = new ThingRegistryChangeListener();
 
         try {
             thingRegistry.addRegistryChangeListener(listener);
             Thing thing = ThingBuilder
-                    .create(new ThingTypeUID("bindingId:type"), new ThingUID("bindingId:type:thingId")).build();
+                    .create(new ThingTypeUID(BINDING_ID, THING_TYPE_ID),
+                            new ThingUID(BINDING_ID, THING_TYPE_ID, "thingId"))
+                    .withConfiguration(new Configuration(Map.of("parameter", ""))).build();
 
             managedThingProvider.add(thing);
 
@@ -534,23 +558,27 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
 
             // set properties
             String modelId = "1234";
-            ((YetAnotherThingHandler) listener.getThing().getHandler()).updateProperties(modelId);
+            String firmwareVersion = "1.2.3";
+            ((YetAnotherThingHandler) listener.getThing().getHandler()).updateProperties(
+                    Map.of(Thing.PROPERTY_MODEL_ID, modelId, Thing.PROPERTY_FIRMWARE_VERSION, firmwareVersion));
 
             assertThat(listener.getThing().getProperties().get(Thing.PROPERTY_MODEL_ID), is(modelId));
+            assertThat(listener.getThing().getProperties().get(Thing.PROPERTY_FIRMWARE_VERSION), is(firmwareVersion));
 
             String vendor = "vendor";
-            ((YetAnotherThingHandler) listener.getThing().getHandler()).updateProperty(vendor);
+            ((YetAnotherThingHandler) listener.getThing().getHandler()).updateProperty(Thing.PROPERTY_VENDOR, vendor);
 
             assertThat(listener.getThing().getProperties().get(Thing.PROPERTY_VENDOR), is(vendor));
 
-            // unset properties
-            ((YetAnotherThingHandler) listener.getThing().getHandler()).updateProperties((String) null);
+            // unset single property
+            ((YetAnotherThingHandler) listener.getThing().getHandler()).updateProperty(Thing.PROPERTY_MODEL_ID, null);
 
             assertThat(listener.getThing().getProperties().get(Thing.PROPERTY_MODEL_ID), is(nullValue()));
 
-            ((YetAnotherThingHandler) listener.getThing().getHandler()).updateProperty(null);
+            // unset all properties
+            ((YetAnotherThingHandler) listener.getThing().getHandler()).updateProperties(null);
 
-            assertThat(listener.getThing().getProperties().get(Thing.PROPERTY_VENDOR), is(nullValue()));
+            assertTrue(listener.getThing().getProperties().isEmpty());
         } finally {
             thingRegistry.removeRegistryChangeListener(listener);
         }
@@ -559,15 +587,17 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
     @Test
     public void assertConfigurationWillBeUpdatedByDefaultImplementation() {
         SimpleThingHandlerFactory thingHandlerFactory = new SimpleThingHandlerFactory();
-        thingHandlerFactory.activate(componentContext);
+        thingHandlerFactory.activate(componentContextMock);
         registerService(thingHandlerFactory, ThingHandlerFactory.class.getName());
 
         final ThingRegistryChangeListener listener = new ThingRegistryChangeListener();
 
+        registerDefaultThingTypeAndConfigDescription();
+
         try {
             thingRegistry.addRegistryChangeListener(listener);
-            ThingTypeUID thingTypeUID = new ThingTypeUID("bindingId:type");
-            ThingUID thingUID = new ThingUID("bindingId:type:thingId");
+            ThingTypeUID thingTypeUID = new ThingTypeUID(BINDING_ID, THING_TYPE_ID);
+            ThingUID thingUID = new ThingUID(thingTypeUID, "thingId");
             Thing thing = ThingBuilder.create(thingTypeUID, thingUID).build();
 
             managedThingProvider.add(thing);
@@ -585,20 +615,20 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
     @Test
     public void assertConfigurationParametersAreValidated() {
         SimpleThingHandlerFactory thingHandlerFactory = new SimpleThingHandlerFactory();
-        thingHandlerFactory.activate(componentContext);
+        thingHandlerFactory.activate(componentContextMock);
         registerService(thingHandlerFactory, ThingHandlerFactory.class.getName());
 
-        registerThingTypeProvider();
         registerConfigDescriptionProvider(true);
+        registerDefaultThingTypeProvider();
 
-        ThingTypeUID thingTypeUID = new ThingTypeUID("bindingId:type");
-        ThingUID thingUID = new ThingUID("bindingId:type:thingId");
+        ThingTypeUID thingTypeUID = new ThingTypeUID(BINDING_ID, THING_TYPE_ID);
+        ThingUID thingUID = new ThingUID(thingTypeUID, "thingId");
         Thing thing = ThingBuilder.create(thingTypeUID, thingUID)
                 .withConfiguration(new Configuration(Map.of("parameter", "someValue"))).build();
 
         managedThingProvider.add(thing);
 
-        Map<String, Object> configuration = new HashMap<>();
+        Map<String, @Nullable Object> configuration = new HashMap<>();
         configuration.put("parameter", null);
 
         assertThrows(ConfigValidationException.class,
@@ -606,17 +636,51 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
     }
 
     @Test
-    public void assertConfigurationIsRolledbackOnError() {
+    public void assertIllegalConfigurationParametersPreventUpdate() {
         SimpleThingHandlerFactory thingHandlerFactory = new SimpleThingHandlerFactory();
-        thingHandlerFactory.activate(componentContext);
+        thingHandlerFactory.activate(componentContextMock);
         registerService(thingHandlerFactory, ThingHandlerFactory.class.getName());
 
-        registerThingTypeAndConfigDescription();
+        registerDefaultThingTypeProvider();
+        registerConfigDescriptionProvider(true);
+
+        ThingTypeUID thingTypeUID = new ThingTypeUID(BINDING_ID, THING_TYPE_ID);
+        ThingUID thingUID = new ThingUID(thingTypeUID, "thingId");
+        Thing thing = ThingBuilder.create(thingTypeUID, thingUID)
+                .withConfiguration(new Configuration(Map.of("parameter", "someValue"))).build();
+
+        managedThingProvider.add(thing);
+
+        SimpleThingHandler handler = (SimpleThingHandler) thing.getHandler();
+        assertNotNull(handler);
+        Object parameter = handler.getThing().getConfiguration().get("parameter");
+        assertNotNull(parameter);
+        assertEquals("someValue", parameter);
+
+        handler.updateConfiguration(new Configuration(Map.of("parameter", "otherValue")));
+        parameter = handler.getThing().getConfiguration().get("parameter");
+        assertNotNull(parameter);
+        assertEquals("otherValue", parameter);
+
+        handler.updateConfiguration(new Configuration(Map.of()));
+        parameter = handler.getThing().getConfiguration().get("parameter");
+        // configuration should not change
+        assertNotNull(parameter);
+        assertEquals("otherValue", parameter);
+    }
+
+    @Test
+    public void assertConfigurationIsRolledbackOnError() {
+        SimpleThingHandlerFactory thingHandlerFactory = new SimpleThingHandlerFactory();
+        thingHandlerFactory.activate(componentContextMock);
+        registerService(thingHandlerFactory, ThingHandlerFactory.class.getName());
+
+        registerDefaultThingTypeAndConfigDescription();
 
         ThingRegistry thingRegistry = getService(ThingRegistry.class);
 
-        ThingTypeUID thingTypeUID = new ThingTypeUID("bindingId:type");
-        ThingUID thingUID = new ThingUID("bindingId:type:thingId");
+        ThingTypeUID thingTypeUID = new ThingTypeUID(BINDING_ID, THING_TYPE_ID);
+        ThingUID thingUID = new ThingUID(thingTypeUID, "thingId");
         Thing thing = ThingBuilder.create(thingTypeUID, thingUID).build();
 
         managedThingProvider.add(thing);
@@ -644,16 +708,20 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
     @Test
     public void assertBaseThingHandlerHandlesBridgeStatusUpdatesCorrectly() {
         SimpleThingHandlerFactory thingHandlerFactory = new SimpleThingHandlerFactory();
-        thingHandlerFactory.activate(componentContext);
+        thingHandlerFactory.activate(componentContextMock);
         registerService(thingHandlerFactory, ThingHandlerFactory.class.getName());
 
-        ThingTypeUID thingType1 = new ThingTypeUID("bindingId:type1");
-        ThingTypeUID thingType2 = new ThingTypeUID("bindingId:type2");
+        ThingTypeUID thingTypeUID1 = new ThingTypeUID(BINDING_ID, "type1");
+        ThingTypeUID thingTypeUID2 = new ThingTypeUID(BINDING_ID, "type2");
 
-        Bridge bridge = BridgeBuilder.create(thingType1, new ThingUID("bindingId:type1:bridgeId")).build();
-        Thing thingA = ThingBuilder.create(thingType2, new ThingUID("bindingId:type2:thingIdA"))
+        ThingType thingType1 = ThingTypeBuilder.instance(thingTypeUID1, thingTypeUID1.getId()).build();
+        ThingType thingType2 = ThingTypeBuilder.instance(thingTypeUID2, thingTypeUID2.getId()).build();
+        registerThingTypeProvider(thingType1, thingType2);
+
+        Bridge bridge = BridgeBuilder.create(thingTypeUID1, new ThingUID(thingTypeUID1, "bridgeId")).build();
+        Thing thingA = ThingBuilder.create(thingTypeUID2, new ThingUID(thingTypeUID2, "thingIdA"))
                 .withBridge(bridge.getUID()).build();
-        Thing thingB = ThingBuilder.create(thingType2, new ThingUID("bindingId:type2:thingIdB"))
+        Thing thingB = ThingBuilder.create(thingTypeUID2, new ThingUID(thingTypeUID2, "thingIdB"))
                 .withBridge(bridge.getUID()).build();
 
         assertThat(bridge.getStatus(), is(ThingStatus.UNINITIALIZED));
@@ -691,11 +759,11 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
         waitForAssert(() -> assertThat(thingB.getStatusInfo(), is(online)));
 
         unregisterService(ThingHandlerFactory.class.getName());
-        thingHandlerFactory.deactivate(componentContext);
+        thingHandlerFactory.deactivate(componentContextMock);
     }
 
     @SuppressWarnings("unchecked")
-    protected <T extends ThingHandler> T getThingHandler(SimpleThingHandlerFactory factory, Class<T> clazz) {
+    protected <T extends ThingHandler> @Nullable T getThingHandler(SimpleThingHandlerFactory factory, Class<T> clazz) {
         for (ThingHandler handler : factory.getHandlers()) {
             if (clazz.isInstance(handler)) {
                 return (T) handler;
@@ -704,61 +772,48 @@ public class BindingBaseClassesOSGiTest extends JavaOSGiTest {
         return null;
     }
 
-    private URI configDescriptionUri() {
-        try {
-            return new URI("test:test");
-        } catch (URISyntaxException e) {
-            throw new IllegalStateException("Error creating config description URI");
-        }
-    }
-
-    private void registerThingTypeAndConfigDescription() {
-        ThingType thingType = ThingTypeBuilder.instance(new ThingTypeUID(BINDING_ID, THING_TYPE_ID), "label")
-                .withConfigDescriptionURI(configDescriptionUri()).build();
-        ConfigDescription configDescription = ConfigDescriptionBuilder.create(configDescriptionUri())
+    private void registerDefaultThingTypeAndConfigDescription() {
+        registerDefaultThingTypeProvider();
+        ConfigDescription configDescription = ConfigDescriptionBuilder.create(BINDING_CONFIG_URI)
                 .withParameter(ConfigDescriptionParameterBuilder
                         .create("parameter", ConfigDescriptionParameter.Type.TEXT).withRequired(true).build())
                 .build();
 
-        ThingTypeProvider thingTypeProvider = mock(ThingTypeProvider.class);
-        when(thingTypeProvider.getThingType(ArgumentMatchers.any(ThingTypeUID.class),
-                ArgumentMatchers.any(Locale.class))).thenReturn(thingType);
-        registerService(thingTypeProvider);
-
-        ThingTypeRegistry thingTypeRegistry = mock(ThingTypeRegistry.class);
-        when(thingTypeRegistry.getThingType(ArgumentMatchers.any(ThingTypeUID.class))).thenReturn(thingType);
-        registerService(thingTypeRegistry);
-
         ConfigDescriptionProvider configDescriptionProvider = mock(ConfigDescriptionProvider.class);
-        when(configDescriptionProvider.getConfigDescription(ArgumentMatchers.any(URI.class),
-                ArgumentMatchers.nullable(Locale.class))).thenReturn(configDescription);
+        when(configDescriptionProvider.getConfigDescription(eq(BINDING_CONFIG_URI), nullable(Locale.class)))
+                .thenReturn(configDescription);
         registerService(configDescriptionProvider);
     }
 
-    private void registerThingTypeProvider() {
+    private void registerDefaultThingTypeProvider() {
         ThingType thingType = ThingTypeBuilder.instance(new ThingTypeUID(BINDING_ID, THING_TYPE_ID), "label")
-                .withConfigDescriptionURI(configDescriptionUri()).build();
+                .withConfigDescriptionURI(BINDING_CONFIG_URI).build();
+        registerThingTypeProvider(thingType);
+    }
 
+    private void registerThingTypeProvider(ThingType... thingTypes) {
         ThingTypeProvider thingTypeProvider = mock(ThingTypeProvider.class);
-        when(thingTypeProvider.getThingType(ArgumentMatchers.any(ThingTypeUID.class),
-                ArgumentMatchers.nullable(Locale.class))).thenReturn(thingType);
-        registerService(thingTypeProvider);
-
         ThingTypeRegistry thingTypeRegistry = mock(ThingTypeRegistry.class);
-        when(thingTypeRegistry.getThingType(ArgumentMatchers.any(ThingTypeUID.class))).thenReturn(thingType);
+
+        for (ThingType thingType : thingTypes) {
+            when(thingTypeProvider.getThingType(eq(thingType.getUID()), nullable(Locale.class))).thenReturn(thingType);
+            when(thingTypeRegistry.getThingType(eq(thingType.getUID()))).thenReturn(thingType);
+        }
+
+        registerService(thingTypeProvider);
         registerService(thingTypeRegistry);
     }
 
     private void registerConfigDescriptionProvider(boolean withRequiredParameter) {
-        ConfigDescription configDescription = ConfigDescriptionBuilder.create(configDescriptionUri())
+        ConfigDescription configDescription = ConfigDescriptionBuilder.create(BINDING_CONFIG_URI)
                 .withParameter(
                         ConfigDescriptionParameterBuilder.create("parameter", ConfigDescriptionParameter.Type.TEXT)
                                 .withRequired(withRequiredParameter).build())
                 .build();
 
         ConfigDescriptionProvider configDescriptionProvider = mock(ConfigDescriptionProvider.class);
-        when(configDescriptionProvider.getConfigDescription(ArgumentMatchers.any(URI.class),
-                ArgumentMatchers.nullable(Locale.class))).thenReturn(configDescription);
+        when(configDescriptionProvider.getConfigDescription(ArgumentMatchers.any(URI.class), nullable(Locale.class)))
+                .thenReturn(configDescription);
         registerService(configDescriptionProvider);
     }
 }

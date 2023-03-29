@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -14,15 +14,21 @@ package org.openhab.core.thing.internal;
 
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -35,8 +41,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.openhab.core.common.registry.RegistryChangeListener;
+import org.openhab.core.events.Event;
+import org.openhab.core.events.EventSubscriber;
+import org.openhab.core.items.Item;
 import org.openhab.core.items.ManagedItemProvider;
+import org.openhab.core.items.events.AbstractItemRegistryEvent;
+import org.openhab.core.items.events.ItemRemovedEvent;
 import org.openhab.core.library.CoreItemFactory;
 import org.openhab.core.library.items.NumberItem;
 import org.openhab.core.test.java.JavaOSGiTest;
@@ -51,17 +64,33 @@ import org.openhab.core.thing.ThingTypeUID;
 import org.openhab.core.thing.ThingUID;
 import org.openhab.core.thing.binding.BaseThingHandler;
 import org.openhab.core.thing.binding.ThingHandlerFactory;
+import org.openhab.core.thing.binding.ThingTypeProvider;
 import org.openhab.core.thing.binding.builder.ChannelBuilder;
 import org.openhab.core.thing.binding.builder.ThingBuilder;
+import org.openhab.core.thing.events.AbstractThingRegistryEvent;
+import org.openhab.core.thing.events.ThingRemovedEvent;
+import org.openhab.core.thing.link.AbstractLink;
 import org.openhab.core.thing.link.ItemChannelLink;
 import org.openhab.core.thing.link.ItemChannelLinkRegistry;
 import org.openhab.core.thing.link.ManagedItemChannelLinkProvider;
+import org.openhab.core.thing.link.dto.ItemChannelLinkDTO;
+import org.openhab.core.thing.link.events.AbstractItemChannelLinkRegistryEvent;
+import org.openhab.core.thing.link.events.ItemChannelLinkRemovedEvent;
 import org.openhab.core.thing.type.ChannelKind;
+import org.openhab.core.thing.type.ChannelType;
+import org.openhab.core.thing.type.ChannelTypeBuilder;
+import org.openhab.core.thing.type.ChannelTypeProvider;
+import org.openhab.core.thing.type.ChannelTypeRegistry;
 import org.openhab.core.thing.type.ChannelTypeUID;
+import org.openhab.core.thing.type.ThingType;
+import org.openhab.core.thing.type.ThingTypeBuilder;
+import org.openhab.core.thing.type.ThingTypeRegistry;
 import org.openhab.core.thing.util.ThingHandlerHelper;
 import org.openhab.core.types.Command;
 import org.openhab.core.util.BundleResolver;
 import org.osgi.framework.Bundle;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Tests {@link ChannelLinkNotifier}.
@@ -69,12 +98,15 @@ import org.osgi.framework.Bundle;
  * @author Wouter Born - Initial contribution
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @NonNullByDefault
 public class ChannelLinkNotifierOSGiTest extends JavaOSGiTest {
 
     private static final ThingTypeUID THING_TYPE_UID = new ThingTypeUID("binding:type");
     private static final ChannelTypeUID CHANNEL_TYPE_UID = new ChannelTypeUID("binding:channelType");
     private static final int CHANNEL_COUNT = 5;
+
+    private final Logger logger = LoggerFactory.getLogger(ChannelLinkNotifierOSGiTest.class);
 
     private int thingCount;
 
@@ -144,6 +176,7 @@ public class ChannelLinkNotifierOSGiTest extends JavaOSGiTest {
     @BeforeEach
     public void beforeEach() {
         registerVolatileStorageService();
+        registerThingAndChannelTypeProvider();
 
         itemChannelLinkRegistry = getService(ItemChannelLinkRegistry.class);
         assertThat(itemChannelLinkRegistry, is(notNullValue()));
@@ -166,24 +199,60 @@ public class ChannelLinkNotifierOSGiTest extends JavaOSGiTest {
         when(thingHandlerFactoryMock.supportsThingType(eq(THING_TYPE_UID))).thenReturn(true);
         registerService(thingHandlerFactoryMock);
 
-        when(bundleMock.getSymbolicName()).thenReturn("org.openhab.core.thing");
-        when(bundleResolverMock.resolveBundle(any())).thenReturn(bundleMock);
-
         ThingManagerImpl thingManager = (ThingManagerImpl) getService(ThingManager.class);
         assertThat(thingManager, is(notNullValue()));
-        if (thingManager != null) {
-            thingManager.setBundleResolver(bundleResolverMock);
-        }
     }
 
     @AfterEach
     public void afterEach() throws Exception {
+        Set<String> itemChannelLinkUIDsToRemove = managedItemChannelLinkProvider.getAll().stream()
+                .map(ItemChannelLink::getUID).collect(Collectors.toSet());
+        Set<String> itemNamesToRemove = managedItemProvider.getAll().stream().map(Item::getName)
+                .collect(Collectors.toSet());
+        Set<String> thingUIDsToRemove = managedThingProvider.getAll().stream().map(Thing::getUID)
+                .map(ThingUID::toString).collect(Collectors.toSet());
+
+        Set<String> removedItemNames = new HashSet<>();
+        Set<String> removedItemChannelLinkUIDs = new HashSet<>();
+        Set<String> removedThingUIDs = new HashSet<>();
+
+        EventSubscriber itemEventSubscriber = new EventSubscriber() {
+            @Override
+            public void receive(Event event) {
+                logger.debug("Received event: {}", event);
+                if (event instanceof AbstractItemChannelLinkRegistryEvent) {
+                    ItemChannelLinkDTO link = ((AbstractItemChannelLinkRegistryEvent) event).getLink();
+                    removedItemChannelLinkUIDs
+                            .add(AbstractLink.getIDFor(link.itemName, new ChannelUID(link.channelUID)));
+                } else if (event instanceof AbstractItemRegistryEvent) {
+                    removedItemNames.add(((AbstractItemRegistryEvent) event).getItem().name);
+                } else if (event instanceof AbstractThingRegistryEvent) {
+                    removedThingUIDs.add(((AbstractThingRegistryEvent) event).getThing().UID);
+                }
+            }
+
+            @Override
+            public Set<String> getSubscribedEventTypes() {
+                return Set.of(ItemChannelLinkRemovedEvent.TYPE, ItemRemovedEvent.TYPE, ThingRemovedEvent.TYPE);
+            }
+        };
+
+        registerService(itemEventSubscriber);
+        Thread.sleep(300);
+
         managedItemChannelLinkProvider.getAll()
                 .forEach(itemChannelLink -> managedItemChannelLinkProvider.remove(itemChannelLink.getUID()));
         managedItemProvider.getAll().forEach(item -> managedItemProvider.remove(item.getUID()));
         managedThingProvider.getAll().forEach(thing -> managedThingProvider.remove(thing.getUID()));
 
-        thingCount = 0;
+        // wait for the resulting events to be handled so they do not cause the next test to fail
+        waitForAssert(() -> {
+            assertTrue(removedItemChannelLinkUIDs.containsAll(itemChannelLinkUIDsToRemove));
+            assertTrue(removedItemNames.containsAll(itemNamesToRemove));
+            assertTrue(removedThingUIDs.containsAll(thingUIDsToRemove));
+        });
+
+        unregisterService(itemEventSubscriber);
     }
 
     private Thing addThing(@Nullable ThingStatus thingStatus) {
@@ -232,11 +301,38 @@ public class ChannelLinkNotifierOSGiTest extends JavaOSGiTest {
     }
 
     private void addItemsAndLinks(Thing thing, String itemSuffix) {
+        Set<String> linkUIDsToAdd = new HashSet<>();
+        Set<String> addedLinkUIDs = new HashSet<>();
+
+        RegistryChangeListener<ItemChannelLink> changeListener = new RegistryChangeListener<>() {
+            @Override
+            public void added(ItemChannelLink element) {
+                addedLinkUIDs.add(element.getUID());
+            }
+
+            @Override
+            public void updated(ItemChannelLink oldElement, ItemChannelLink element) {
+            }
+
+            @Override
+            public void removed(ItemChannelLink element) {
+            }
+        };
+
+        itemChannelLinkRegistry.addRegistryChangeListener(changeListener);
+
         forEachThingChannelUID(thing, channelUID -> {
             String itemName = getItemName(thing, channelUID, itemSuffix);
             managedItemProvider.add(new NumberItem(itemName));
-            managedItemChannelLinkProvider.add(new ItemChannelLink(itemName, channelUID));
+            ItemChannelLink itemChannelLink = new ItemChannelLink(itemName, channelUID);
+            managedItemChannelLinkProvider.add(itemChannelLink);
+            linkUIDsToAdd.add(itemChannelLink.getUID());
         });
+
+        // wait for the resulting events to be handled so they do not cause further assertions fail
+        waitForAssert(() -> assertTrue(addedLinkUIDs.containsAll(linkUIDsToAdd)));
+
+        itemChannelLinkRegistry.removeRegistryChangeListener(changeListener);
     }
 
     private void removeItemsAndLinks(Thing thing, String itemSuffix) {
@@ -270,9 +366,11 @@ public class ChannelLinkNotifierOSGiTest extends JavaOSGiTest {
 
     private void assertAllChannelsLinkedBasedOnEvents(Thing thing, int eventCount) {
         TestHandler handler = getHandler(thing);
-        forEachThingChannelUID(thing, channelUID -> {
-            assertThat(handler.isLinkedBasedOnEvent(channelUID), is(true));
-            assertThat(handler.getChannelLinkEvents(channelUID).size(), is(eventCount));
+        waitForAssert(() -> {
+            forEachThingChannelUID(thing, channelUID -> {
+                assertThat(handler.isLinkedBasedOnEvent(channelUID), is(true));
+                assertThat(handler.getChannelLinkEvents(channelUID).size(), is(eventCount));
+            });
         });
     }
 
@@ -470,5 +568,28 @@ public class ChannelLinkNotifierOSGiTest extends JavaOSGiTest {
         updateLinks(subjectThing, "link1");
         assertNoChannelLinkEventsReceived(subjectThing);
         assertNoChannelLinkEventsReceived(otherThing);
+    }
+
+    private void registerThingAndChannelTypeProvider() {
+        ThingType thingType = ThingTypeBuilder.instance(THING_TYPE_UID, "label").build();
+
+        ThingTypeProvider thingTypeProvider = mock(ThingTypeProvider.class);
+        when(thingTypeProvider.getThingType(any(ThingTypeUID.class), nullable(Locale.class))).thenReturn(thingType);
+        registerService(thingTypeProvider);
+
+        ThingTypeRegistry thingTypeRegistry = mock(ThingTypeRegistry.class);
+        when(thingTypeRegistry.getThingType(any(ThingTypeUID.class))).thenReturn(thingType);
+        registerService(thingTypeRegistry);
+
+        ChannelType channelType = ChannelTypeBuilder.state(CHANNEL_TYPE_UID, "Number", "Number").build();
+
+        ChannelTypeProvider channelTypeProvider = mock(ChannelTypeProvider.class);
+        when(channelTypeProvider.getChannelType(any(ChannelTypeUID.class), nullable(Locale.class)))
+                .thenReturn(channelType);
+        registerService(channelTypeProvider);
+
+        ChannelTypeRegistry channelTypeRegistry = mock(ChannelTypeRegistry.class);
+        when(channelTypeRegistry.getChannelType(any(ChannelTypeUID.class))).thenReturn(channelType);
+        registerService(channelTypeRegistry);
     }
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -16,6 +16,7 @@ import java.io.File;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -24,6 +25,10 @@ import org.openhab.core.OpenHAB;
 import org.openhab.core.config.core.ConfigurableService;
 import org.openhab.core.storage.Storage;
 import org.openhab.core.storage.StorageService;
+import org.openhab.core.storage.json.internal.migration.BridgeImplTypeMigrator;
+import org.openhab.core.storage.json.internal.migration.PersistedTransformationTypeMigrator;
+import org.openhab.core.storage.json.internal.migration.ThingImplTypeMigrator;
+import org.openhab.core.storage.json.internal.migration.TypeMigrator;
 import org.osgi.framework.Constants;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -45,6 +50,14 @@ import org.slf4j.LoggerFactory;
 public class JsonStorageService implements StorageService {
 
     private static final int MAX_FILENAME_LENGTH = 127;
+
+    /**
+     * Contains a map of needed migrations, key is the storage name
+     */
+    private static final Map<String, List<TypeMigrator>> MIGRATORS = Map.of( //
+            "org.openhab.core.thing.Thing", List.of(new BridgeImplTypeMigrator(), new ThingImplTypeMigrator()), //
+            "org.openhab.core.transform.TransformationConfiguration",
+            List.of(new PersistedTransformationTypeMigrator()));
 
     private final Logger logger = LoggerFactory.getLogger(JsonStorageService.class);
 
@@ -116,23 +129,25 @@ public class JsonStorageService implements StorageService {
         logger.debug("Json Storage Service: Deactivated.");
     }
 
-    @SuppressWarnings({ "unchecked", "null" })
+    @SuppressWarnings("unchecked")
     @Override
     public <T> Storage<T> getStorage(String name, @Nullable ClassLoader classLoader) {
         File legacyFile = new File(dbFolderName, name + ".json");
-        File escapedFile = new File(dbFolderName, urlEscapeUnwantedChars(name) + ".json");
+        File file = new File(dbFolderName, urlEscapeUnwantedChars(name) + ".json");
 
-        File file = escapedFile;
         if (legacyFile.exists()) {
             file = legacyFile;
         }
 
-        JsonStorage<T> newStorage = new JsonStorage<>(file, classLoader, maxBackupFiles, writeDelay, maxDeferredPeriod);
-
-        JsonStorage<Object> oldStorage = storageList.put(name, (JsonStorage<Object>) newStorage);
+        JsonStorage<Object> oldStorage = storageList.get(name);
         if (oldStorage != null) {
             oldStorage.flush();
         }
+
+        JsonStorage<T> newStorage = new JsonStorage<>(file, classLoader, maxBackupFiles, writeDelay, maxDeferredPeriod,
+                MIGRATORS.getOrDefault(name, List.of()));
+        storageList.put(name, (JsonStorage<Object>) newStorage);
+
         return newStorage;
     }
 

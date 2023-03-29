@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.openhab.core.events.Event;
@@ -31,12 +32,13 @@ import org.openhab.core.thing.binding.firmware.ProgressStep;
  *
  * @author Dimitar Ivanov - Initial contribution
  */
+@NonNullByDefault
 public class FirmwareEventFactoryTest extends JavaTest {
 
     private static final ThingTypeUID THING_TYPE_UID1 = new ThingTypeUID("binding", "simpleID");
     private final ThingUID thingUID = new ThingUID(THING_TYPE_UID1, "idSample");
 
-    private FirmwareEventFactory eventFactory;
+    private @NonNullByDefault({}) FirmwareEventFactory eventFactory;
 
     @BeforeEach
     public void setUp() {

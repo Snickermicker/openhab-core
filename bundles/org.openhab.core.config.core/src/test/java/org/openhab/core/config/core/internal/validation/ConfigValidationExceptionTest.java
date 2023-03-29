@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -36,6 +37,7 @@ import org.osgi.framework.Bundle;
  * @author Thomas Höfer - Initial contribution
  * @author Wouter Born - Migrate tests from Groovy to Java
  */
+@NonNullByDefault
 public class ConfigValidationExceptionTest {
 
     private static final String PARAM1 = "param1";
@@ -67,7 +69,7 @@ public class ConfigValidationExceptionTest {
     private static final TranslationProvider TRANSLATION_PROVIDER = new TranslationProvider() {
         @Override
         public @Nullable String getText(@Nullable Bundle bundle, @Nullable String key, @Nullable String defaultText,
-                @Nullable Locale locale, @Nullable Object... arguments) {
+                @Nullable Locale locale, @Nullable Object @Nullable... arguments) {
             return getText(bundle, key, defaultText, locale);
         }
 
@@ -139,8 +141,7 @@ public class ConfigValidationExceptionTest {
     }
 
     @Test
-    @SuppressWarnings("unused")
-    public void assertThatNPEisThrownForNullConfigValidationMessages() {
+    public void assertThatNPEIsThrownForNullConfigValidationMessages() {
         assertThrows(NullPointerException.class,
                 () -> new ConfigValidationException(BUNDLE, TRANSLATION_PROVIDER, null));
     }

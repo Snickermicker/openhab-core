@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -42,7 +42,8 @@ public interface UsbSerialDiscovery {
     void stopBackgroundScanning();
 
     /**
-     * Registers an {@link UsbSerialDiscoveryListener} that is then notified about discovered serial ports and USB
+     * Registers an {@link UsbSerialDiscoveryListener} that is then notified about discovered serial ports and USB,
+     * including those already found during previous scan.
      * devices.
      */
     void registerDiscoveryListener(UsbSerialDiscoveryListener listener);

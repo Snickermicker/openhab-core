@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -26,6 +26,7 @@ import java.util.Hashtable;
 import java.util.Map;
 import java.util.Set;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -46,10 +47,11 @@ import org.osgi.service.cm.ConfigurationAdmin;
  *
  * @author Henning Sudbrock - Initial contribution
  */
+@NonNullByDefault
 public class UsbSerialDiscoveryServiceTest extends JavaOSGiTest {
 
-    private UsbSerialDiscovery usbSerialDiscovery;
-    private UsbSerialDiscoveryService usbSerialDiscoveryService;
+    private @NonNullByDefault({}) UsbSerialDiscovery usbSerialDiscovery;
+    private @NonNullByDefault({}) UsbSerialDiscoveryService usbSerialDiscoveryService;
 
     private final UsbSerialDeviceInformationGenerator usbSerialDeviceInformationGenerator = new UsbSerialDeviceInformationGenerator();
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -24,6 +24,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -33,6 +34,7 @@ import org.openhab.core.OpenHAB;
 import org.openhab.core.addon.Addon;
 import org.openhab.core.addon.marketplace.MarketplaceAddonHandler;
 import org.openhab.core.addon.marketplace.MarketplaceHandlerException;
+import org.openhab.core.common.ThreadPoolManager;
 import org.openhab.core.util.UIDUtils;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -58,13 +60,16 @@ public class CommunityKarafAddonHandler implements MarketplaceAddonHandler {
     private static final String KAR_EXTENSION = ".kar";
 
     private final Logger logger = LoggerFactory.getLogger(CommunityKarafAddonHandler.class);
-
+    private final ScheduledExecutorService scheduler = ThreadPoolManager
+            .getScheduledPool(ThreadPoolManager.THREAD_POOL_NAME_COMMON);
     private final KarService karService;
+
+    private boolean isReady = false;
 
     @Activate
     public CommunityKarafAddonHandler(@Reference KarService karService) {
         this.karService = karService;
-        ensureCachedKarsAreInstalled();
+        scheduler.execute(this::ensureCachedKarsAreInstalled);
     }
 
     @Override
@@ -73,8 +78,12 @@ public class CommunityKarafAddonHandler implements MarketplaceAddonHandler {
     }
 
     private Stream<Path> karFilesStream(Path addonDirectory) throws IOException {
-        return Files.isDirectory(addonDirectory) ? Files.list(addonDirectory).map(Path::getFileName)
-                .filter(path -> path.toString().endsWith(KAR_EXTENSION)) : Stream.empty();
+        if (Files.isDirectory(addonDirectory)) {
+            try (Stream<Path> files = Files.list(addonDirectory)) {
+                return files.map(Path::getFileName).filter(path -> path.toString().endsWith(KAR_EXTENSION));
+            }
+        }
+        return Stream.empty();
     }
 
     private String pathToKarRepoName(Path path) {
@@ -101,8 +110,8 @@ public class CommunityKarafAddonHandler implements MarketplaceAddonHandler {
     public void install(Addon addon) throws MarketplaceHandlerException {
         try {
             URL sourceUrl = new URL((String) addon.getProperties().get(KAR_DOWNLOAD_URL_PROPERTY));
-            addKarToCache(addon.getId(), sourceUrl);
-            installFromCache(addon.getId());
+            addKarToCache(addon.getUid(), sourceUrl);
+            installFromCache(addon.getUid());
         } catch (MalformedURLException e) {
             throw new MarketplaceHandlerException("Malformed source URL: " + e.getMessage(), e);
         }
@@ -111,7 +120,7 @@ public class CommunityKarafAddonHandler implements MarketplaceAddonHandler {
     @Override
     public void uninstall(Addon addon) throws MarketplaceHandlerException {
         try {
-            Path addonPath = getAddonCacheDirectory(addon.getId());
+            Path addonPath = getAddonCacheDirectory(addon.getUid());
             List<String> repositories = karService.list();
             for (Path path : karFilesStream(addonPath).collect(Collectors.toList())) {
                 String karRepoName = pathToKarRepoName(path);
@@ -148,8 +157,8 @@ public class CommunityKarafAddonHandler implements MarketplaceAddonHandler {
     private void installFromCache(String addonId) throws MarketplaceHandlerException {
         Path addonPath = getAddonCacheDirectory(addonId);
         if (Files.isDirectory(addonPath)) {
-            try {
-                List<Path> karFiles = Files.list(addonPath).collect(Collectors.toList());
+            try (Stream<Path> files = Files.list(addonPath)) {
+                List<Path> karFiles = files.toList();
                 if (karFiles.size() != 1) {
                     throw new MarketplaceHandlerException(
                             "The local cache folder doesn't contain a single file: " + addonPath, null);
@@ -167,10 +176,10 @@ public class CommunityKarafAddonHandler implements MarketplaceAddonHandler {
     }
 
     private void ensureCachedKarsAreInstalled() {
-        try {
-            if (Files.isDirectory(KAR_CACHE_PATH)) {
-                Files.list(KAR_CACHE_PATH).filter(Files::isDirectory).map(this::addonIdFromPath)
-                        .filter(addonId -> !isInstalled(addonId)).forEach(addonId -> {
+        if (Files.isDirectory(KAR_CACHE_PATH)) {
+            try (Stream<Path> files = Files.list(KAR_CACHE_PATH)) {
+                files.filter(Files::isDirectory).map(this::addonIdFromPath).filter(addonId -> !isInstalled(addonId))
+                        .forEach(addonId -> {
                             logger.info("Reinstalling missing marketplace KAR: {}", addonId);
                             try {
                                 installFromCache(addonId);
@@ -178,10 +187,11 @@ public class CommunityKarafAddonHandler implements MarketplaceAddonHandler {
                                 logger.warn("Failed reinstalling add-on from cache", e);
                             }
                         });
+            } catch (IOException e) {
+                logger.warn("Failed to re-install KARs: {}", e.getMessage());
             }
-        } catch (IOException e) {
-            logger.warn("Failed to re-install KARs: {}", e.getMessage());
         }
+        isReady = true;
     }
 
     private String addonIdFromPath(Path path) {
@@ -193,5 +203,10 @@ public class CommunityKarafAddonHandler implements MarketplaceAddonHandler {
         String dir = addonId.startsWith("marketplace:") ? addonId.replace("marketplace:", "")
                 : UIDUtils.encode(addonId);
         return KAR_CACHE_PATH.resolve(dir);
+    }
+
+    @Override
+    public boolean isReady() {
+        return isReady;
     }
 }

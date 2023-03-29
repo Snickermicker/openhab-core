@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -62,6 +62,8 @@ import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 @NonNullByDefault
 public class MqttBrokerConnection {
     final Logger logger = LoggerFactory.getLogger(MqttBrokerConnection.class);
+    public static final Protocol DEFAULT_PROTOCOL = Protocol.TCP;
+    public static final MqttVersion DEFAULT_MQTT_VERSION = MqttVersion.V3;
     public static final int DEFAULT_KEEPALIVE_INTERVAL = 60;
     public static final int DEFAULT_QOS = 0;
 
@@ -162,10 +164,9 @@ public class MqttBrokerConnection {
 
         public void onDisconnected(Throwable t) {
             cancelTimeoutFuture.run();
-
-            final MqttConnectionState connectionState = connection.connectionState();
             future.complete(false);
-            connection.connectionObservers.forEach(o -> o.connectionStateChanged(connectionState, t));
+
+            connection.connectionObservers.forEach(o -> o.connectionStateChanged(MqttConnectionState.DISCONNECTED, t));
 
             // If we tried to connect via start(), use the reconnect strategy to try it again
             if (connection.isConnecting) {

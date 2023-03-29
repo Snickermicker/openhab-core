@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -14,6 +14,8 @@ package org.openhab.core.voice.internal.text;
 
 import java.util.Locale;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.events.EventPublisher;
 import org.openhab.core.items.ItemRegistry;
 import org.openhab.core.library.types.HSBType;
@@ -28,7 +30,9 @@ import org.openhab.core.types.RefreshType;
 import org.openhab.core.voice.text.AbstractRuleBasedInterpreter;
 import org.openhab.core.voice.text.Expression;
 import org.openhab.core.voice.text.HumanLanguageInterpreter;
+import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
 
 /**
@@ -38,8 +42,21 @@ import org.osgi.service.component.annotations.Reference;
  * @author Kai Kreuzer - Added further German interpretation rules
  * @author Laurent Garnier - Added French interpretation rules
  */
+@NonNullByDefault
 @Component(service = HumanLanguageInterpreter.class)
 public class StandardInterpreter extends AbstractRuleBasedInterpreter {
+
+    @Activate
+    public StandardInterpreter(final @Reference EventPublisher eventPublisher,
+            final @Reference ItemRegistry itemRegistry) {
+        super(eventPublisher, itemRegistry);
+    }
+
+    @Override
+    @Deactivate
+    protected void deactivate() {
+        super.deactivate();
+    }
 
     @Override
     public void createRules() {
@@ -170,8 +187,8 @@ public class StandardInterpreter extends AbstractRuleBasedInterpreter {
 
         /****************************** FRENCH ******************************/
 
-        Expression allumer = alt("allumer", "démarrer", "activer");
-        Expression eteindre = alt("éteindre", "stopper", "désactiver", "couper");
+        Expression allume = alt("allume", "démarre", "active");
+        Expression eteins = alt("éteins", "stoppe", "désactive", "coupe");
         Expression lela = opt(alt("le", "la", "les", "l"));
         Expression poursurdude = opt(alt("pour", "sur", "du", "de"));
         Expression couleur = alt(cmd("blanc", HSBType.WHITE), cmd("rose", HSBType.fromRGB(255, 96, 208)),
@@ -183,13 +200,13 @@ public class StandardInterpreter extends AbstractRuleBasedInterpreter {
 
                 /* OnOffType */
 
-                itemRule(seq(cmd(allumer, OnOffType.ON), lela) /* item */),
-                itemRule(seq(cmd(eteindre, OnOffType.OFF), lela) /* item */),
+                itemRule(seq(cmd(allume, OnOffType.ON), lela) /* item */),
+                itemRule(seq(cmd(eteins, OnOffType.OFF), lela) /* item */),
 
                 /* IncreaseDecreaseType */
 
-                itemRule(seq(cmd("augmenter", IncreaseDecreaseType.INCREASE), lela) /* item */),
-                itemRule(seq(cmd("diminuer", IncreaseDecreaseType.DECREASE), lela) /* item */),
+                itemRule(seq(cmd("augmente", IncreaseDecreaseType.INCREASE), lela) /* item */),
+                itemRule(seq(cmd("diminue", IncreaseDecreaseType.DECREASE), lela) /* item */),
 
                 itemRule(seq(cmd("plus", IncreaseDecreaseType.INCREASE), "de") /* item */),
                 itemRule(seq(cmd("moins", IncreaseDecreaseType.DECREASE), "de") /* item */),
@@ -213,17 +230,91 @@ public class StandardInterpreter extends AbstractRuleBasedInterpreter {
 
                 /* UpDownType */
 
-                itemRule(seq(cmd("monter", UpDownType.UP), lela) /* item */),
-                itemRule(seq(cmd("descendre", UpDownType.DOWN), lela) /* item */),
+                itemRule(seq(cmd("monte", UpDownType.UP), lela) /* item */),
+                itemRule(seq(cmd("descends", UpDownType.DOWN), lela) /* item */),
 
                 /* StopMoveType */
 
-                itemRule(seq(cmd("arrêter", StopMoveType.STOP), lela) /* item */),
-                itemRule(seq(cmd(alt("bouger", "déplacer"), StopMoveType.MOVE), lela) /* item */),
+                itemRule(seq(cmd("arrête", StopMoveType.STOP), lela) /* item */),
+                itemRule(seq(cmd(alt("bouge", "déplace"), StopMoveType.MOVE), lela) /* item */),
 
                 /* RefreshType */
 
-                itemRule(seq(cmd("rafraîchir", RefreshType.REFRESH), lela) /* item */)
+                itemRule(seq(cmd("rafraîchis", RefreshType.REFRESH), lela) /* item */)
+
+        );
+
+        /****************************** SPANISH ******************************/
+
+        Expression encenderApagar = alt(cmd(alt("enciende", "encender"), OnOffType.ON),
+                cmd(alt("apaga", "apagar"), OnOffType.OFF));
+        Expression cambia = alt("cambia", "cambiar");
+        Expression poner = alt("pon", "poner");
+        Expression de = opt("de");
+        Expression articulo = opt(alt("el", "la"));
+        Expression nombreColor = alt(cmd("blanco", HSBType.WHITE), cmd("rosa", HSBType.fromRGB(255, 96, 208)),
+                cmd("amarillo", HSBType.fromRGB(255, 224, 32)), cmd("naranja", HSBType.fromRGB(255, 160, 16)),
+                cmd("púrpura", HSBType.fromRGB(128, 0, 128)), cmd("rojo", HSBType.RED), cmd("verde", HSBType.GREEN),
+                cmd("azul", HSBType.BLUE));
+
+        addRules(new Locale("es"),
+
+                /* OnOffType */
+
+                itemRule(seq(encenderApagar, articulo)/* item */),
+
+                /* IncreaseDecreaseType */
+
+                itemRule(seq(cmd(alt("baja", "suaviza", "bajar", "suavizar"), IncreaseDecreaseType.DECREASE),
+                        articulo) /*
+                                   * item
+                                   */),
+
+                itemRule(seq(cmd(alt("sube", "aumenta", "subir", "aumentar"), IncreaseDecreaseType.INCREASE),
+                        articulo) /* item */),
+
+                /* ColorType */
+
+                itemRule(seq(cambia, articulo, opt("color"), de, articulo), /* item */ seq(opt("a"), nombreColor)),
+
+                /* UpDownType */
+
+                itemRule(seq(poner, articulo), /* item */ cmd("arriba", UpDownType.UP)),
+
+                itemRule(seq(poner, articulo), /* item */ cmd("abajo", UpDownType.DOWN)),
+
+                /* NextPreviousType */
+
+                itemRule(alt("cambiar", "cambia"),
+                        /* item */ seq(opt("a"),
+                                alt(cmd("siguiente", NextPreviousType.NEXT),
+                                        cmd("anterior", NextPreviousType.PREVIOUS)))),
+
+                /* PlayPauseType */
+
+                itemRule(seq(cmd(alt("continuar", "continua", "reanudar", "reanuda", "play"), PlayPauseType.PLAY),
+                        articulo) /*
+                                   * item
+                                   */),
+
+                itemRule(seq(cmd(alt("pausa", "pausar"), PlayPauseType.PAUSE), articulo) /* item */),
+
+                /* RewindFastForwardType */
+
+                itemRule(seq(cmd(alt("rebobina", "rebobinar"), RewindFastforwardType.REWIND), articulo) /* item */),
+
+                itemRule(seq(cmd(alt("avanza", "avanzar"), RewindFastforwardType.FASTFORWARD), articulo) /* item */),
+
+                /* StopMoveType */
+
+                itemRule(seq(cmd(alt("para", "parar", "stop"), StopMoveType.STOP), articulo) /* item */),
+
+                itemRule(seq(cmd(alt("mueve", "mover"), StopMoveType.MOVE), articulo) /* item */),
+
+                /* RefreshType */
+
+                itemRule(seq(cmd(alt("recarga", "refresca", "recargar", "refrescar"), RefreshType.REFRESH),
+                        articulo) /* item */)
 
         );
     }
@@ -234,29 +325,7 @@ public class StandardInterpreter extends AbstractRuleBasedInterpreter {
     }
 
     @Override
-    public String getLabel(Locale locale) {
+    public String getLabel(@Nullable Locale locale) {
         return "Built-in Interpreter";
-    }
-
-    @Override
-    @Reference
-    public void setItemRegistry(ItemRegistry ItemRegistry) {
-        super.setItemRegistry(ItemRegistry);
-    }
-
-    @Override
-    public void unsetItemRegistry(ItemRegistry itemRegistry) {
-        super.unsetItemRegistry(itemRegistry);
-    }
-
-    @Override
-    @Reference
-    public void setEventPublisher(EventPublisher EventPublisher) {
-        super.setEventPublisher(EventPublisher);
-    }
-
-    @Override
-    public void unsetEventPublisher(EventPublisher eventPublisher) {
-        super.unsetEventPublisher(eventPublisher);
     }
 }

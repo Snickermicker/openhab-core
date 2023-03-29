@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -23,7 +23,7 @@ public final class EventOption {
     private String label;
 
     /**
-     * Creates a {@link EventOption} object.
+     * Creates an {@link EventOption} object.
      *
      * @param value value of the event
      * @param label label

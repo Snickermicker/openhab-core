@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -184,12 +184,14 @@ public class Ser2NetUsbSerialDiscoveryTest {
         discovery.registerDiscoveryListener(discoveryListenerMock);
         discovery.doSingleScan();
 
-        // Expectation: discovery listener called once for removing usb1, and once for adding usb2/usb3 each.
+        // Expectation: discovery listener called once for adding usb1 and usb2 (on registration)
+        // then once for removing usb1, and once again for adding usb2 (another registration)
+        // and once for usb3
 
-        verify(discoveryListenerMock, never()).usbSerialDeviceDiscovered(usb1);
+        verify(discoveryListenerMock, times(1)).usbSerialDeviceDiscovered(usb1);
         verify(discoveryListenerMock, times(1)).usbSerialDeviceRemoved(usb1);
 
-        verify(discoveryListenerMock, times(1)).usbSerialDeviceDiscovered(usb2);
+        verify(discoveryListenerMock, times(2)).usbSerialDeviceDiscovered(usb2);
         verify(discoveryListenerMock, never()).usbSerialDeviceRemoved(usb2);
 
         verify(discoveryListenerMock, times(1)).usbSerialDeviceDiscovered(usb3);

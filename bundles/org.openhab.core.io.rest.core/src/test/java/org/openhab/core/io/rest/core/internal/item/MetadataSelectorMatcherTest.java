@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,23 +41,24 @@ import org.openhab.core.items.MetadataRegistry;
  * @author Henning Treu - Initial contribution
  */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.WARN)
+@MockitoSettings(strictness = Strictness.LENIENT)
+@NonNullByDefault
 public class MetadataSelectorMatcherTest {
 
-    private MetadataSelectorMatcher matcher;
+    private @NonNullByDefault({}) MetadataSelectorMatcher matcher;
 
-    private @Mock MetadataRegistry metadataRegistry;
+    private @Mock @NonNullByDefault({}) MetadataRegistry metadataRegistryMock;
 
     @BeforeEach
     public void setup() throws Exception {
-        when(metadataRegistry.getAll())
+        when(metadataRegistryMock.getAll())
                 .thenReturn(List.of(new Metadata(new MetadataKey("magic", "test_item"), "test", Map.of()),
                         new Metadata(new MetadataKey("magic2", "test_item"), "test", Map.of()),
                         new Metadata(new MetadataKey("homekit", "test_item"), "test", Map.of()),
                         new Metadata(new MetadataKey("alexa", "test_item"), "test", Map.of())));
-        when(metadataRegistry.isInternalNamespace(anyString())).thenReturn(false);
+        when(metadataRegistryMock.isInternalNamespace(anyString())).thenReturn(false);
 
-        matcher = new MetadataSelectorMatcher(metadataRegistry);
+        matcher = new MetadataSelectorMatcher(metadataRegistryMock);
     }
 
     @Test

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -110,7 +110,7 @@ public class CommandlineRuleImporter extends AbstractCommandProvider<Rule> {
             }
         } else {
             throw new ParsingException(new ParsingNestedException(ParsingNestedException.RULE, null,
-                    new Exception("Parser " + parserType + " not available")));
+                    new IllegalArgumentException("Parser " + parserType + " not available")));
         }
     }
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -17,7 +17,7 @@ import java.util.Date;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 
 /**
- * Expected execution of an {@link Rule}.
+ * Expected execution of a {@link Rule}.
  *
  * @author Sönke Küper - Initial contribution
  */
@@ -28,7 +28,7 @@ public final class RuleExecution implements Comparable<RuleExecution> {
     private final Rule rule;
 
     /**
-     * Creates an new {@link RuleExecution}.
+     * Creates a new {@link RuleExecution}.
      *
      * @param date The time when the rule will be executed.
      * @param rule The rule that will be executed.

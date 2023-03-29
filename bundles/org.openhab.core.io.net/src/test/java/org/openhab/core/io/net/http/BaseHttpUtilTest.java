@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -18,6 +18,7 @@ import static org.mockito.Mockito.when;
 import java.lang.reflect.Field;
 import java.util.concurrent.TimeUnit;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.ContentResponse;
 import org.eclipse.jetty.client.api.Request;
@@ -36,14 +37,16 @@ import org.mockito.quality.Strictness;
  * @author Markus Rathgeb - Base test classes without tests needs to be abstract
  */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.WARN)
+@MockitoSettings(strictness = Strictness.LENIENT)
+@NonNullByDefault
 public abstract class BaseHttpUtilTest {
+
     static final String URL = "http://example.org/test";
 
-    protected @Mock HttpClientFactory clientFactoryMock;
-    protected @Mock HttpClient httpClientMock;
-    protected @Mock Request requestMock;
-    protected @Mock ContentResponse contentResponseMock;
+    protected @Mock @NonNullByDefault({}) HttpClientFactory clientFactoryMock;
+    protected @Mock @NonNullByDefault({}) HttpClient httpClientMock;
+    protected @Mock @NonNullByDefault({}) Request requestMock;
+    protected @Mock @NonNullByDefault({}) ContentResponse contentResponseMock;
 
     @BeforeEach
     public void setUp() throws Exception {

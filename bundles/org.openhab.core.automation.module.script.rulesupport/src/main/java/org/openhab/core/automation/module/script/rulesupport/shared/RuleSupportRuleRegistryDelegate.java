@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -70,7 +70,7 @@ public class RuleSupportRuleRegistryDelegate implements RuleRegistry {
 
     @Override
     public Rule add(Rule element) {
-        ruleProvider.addRule(element);
+        ruleProvider.add(element);
         rules.add(element.getUID());
 
         return element;
@@ -93,7 +93,7 @@ public class RuleSupportRuleRegistryDelegate implements RuleRegistry {
     @Override
     public @Nullable Rule remove(String key) {
         if (rules.remove(key)) {
-            ruleProvider.removeRule(key);
+            return ruleProvider.remove(key);
         }
 
         return ruleRegistry.remove(key);
@@ -109,11 +109,7 @@ public class RuleSupportRuleRegistryDelegate implements RuleRegistry {
      */
     public void removeAllAddedByScript() {
         for (String rule : rules) {
-            try {
-                ruleProvider.removeRule(rule);
-            } catch (Exception ex) {
-                // ignore
-            }
+            ruleProvider.remove(rule);
         }
         rules.clear();
     }

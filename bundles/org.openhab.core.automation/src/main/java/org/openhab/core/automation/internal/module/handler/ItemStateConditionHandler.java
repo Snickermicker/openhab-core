@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,20 +12,37 @@
  */
 package org.openhab.core.automation.internal.module.handler;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Map;
+import java.util.Set;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.automation.Condition;
 import org.openhab.core.automation.handler.BaseConditionModuleHandler;
+import org.openhab.core.events.Event;
+import org.openhab.core.events.EventFilter;
+import org.openhab.core.events.EventSubscriber;
+import org.openhab.core.events.TopicPrefixEventFilter;
+import org.openhab.core.i18n.TimeZoneProvider;
 import org.openhab.core.items.Item;
 import org.openhab.core.items.ItemNotFoundException;
 import org.openhab.core.items.ItemRegistry;
+import org.openhab.core.items.events.ItemAddedEvent;
+import org.openhab.core.items.events.ItemRemovedEvent;
+import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.DecimalType;
+import org.openhab.core.library.types.PercentType;
 import org.openhab.core.library.types.QuantityType;
 import org.openhab.core.library.unit.Units;
 import org.openhab.core.types.State;
 import org.openhab.core.types.TypeParser;
+import org.osgi.framework.BundleContext;
+import org.osgi.framework.ServiceRegistration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,7 +53,7 @@ import org.slf4j.LoggerFactory;
  * @author Kai Kreuzer - refactored and simplified customized module handling
  */
 @NonNullByDefault
-public class ItemStateConditionHandler extends BaseConditionModuleHandler {
+public class ItemStateConditionHandler extends BaseConditionModuleHandler implements EventSubscriber {
 
     /**
      * Constants for Config-Parameters corresponding to Definition in ItemModuleTypeDefinition.json
@@ -49,47 +66,68 @@ public class ItemStateConditionHandler extends BaseConditionModuleHandler {
 
     public static final String ITEM_STATE_CONDITION = "core.ItemStateCondition";
 
-    private @Nullable ItemRegistry itemRegistry;
+    private final ItemRegistry itemRegistry;
+    private final String ruleUID;
+    private final String itemName;
+    private final EventFilter eventFilter;
+    private final BundleContext bundleContext;
+    private final Set<String> types;
+    private final ServiceRegistration<?> eventSubscriberRegistration;
+    private final TimeZoneProvider timeZoneProvider;
 
-    public ItemStateConditionHandler(Condition condition) {
+    public ItemStateConditionHandler(Condition condition, String ruleUID, BundleContext bundleContext,
+            ItemRegistry itemRegistry, TimeZoneProvider timeZoneProvider) {
         super(condition);
-    }
-
-    /**
-     * setter for itemRegistry, used by DS
-     *
-     * @param itemRegistry
-     */
-    public void setItemRegistry(ItemRegistry itemRegistry) {
         this.itemRegistry = itemRegistry;
-    }
+        this.bundleContext = bundleContext;
+        this.timeZoneProvider = timeZoneProvider;
+        this.itemName = (String) module.getConfiguration().get(ITEM_NAME);
+        this.eventFilter = new TopicPrefixEventFilter("openhab/items/" + itemName + "/");
+        this.types = Set.of(ItemAddedEvent.TYPE, ItemRemovedEvent.TYPE);
+        this.ruleUID = ruleUID;
 
-    /**
-     * unsetter for itemRegistry used by DS
-     *
-     * @param itemRegistry
-     */
-    public void unsetItemRegistry(ItemRegistry itemRegistry) {
-        this.itemRegistry = null;
+        eventSubscriberRegistration = this.bundleContext.registerService(EventSubscriber.class.getName(), this, null);
+
+        if (itemRegistry.get(itemName) == null) {
+            logger.warn("Item '{}' needed for rule '{}' is missing. Condition '{}' will not work.", itemName, ruleUID,
+                    module.getId());
+        }
     }
 
     @Override
-    public void dispose() {
-        itemRegistry = null;
+    public Set<String> getSubscribedEventTypes() {
+        return types;
+    }
+
+    @Override
+    public @Nullable EventFilter getEventFilter() {
+        return eventFilter;
+    }
+
+    @Override
+    public void receive(Event event) {
+        if (event instanceof ItemAddedEvent) {
+            if (itemName.equals(((ItemAddedEvent) event).getItem().name)) {
+                logger.info("Item '{}' needed for rule '{}' added. Condition '{}' will now work.", itemName, ruleUID,
+                        module.getId());
+                return;
+            }
+        } else if (event instanceof ItemRemovedEvent) {
+            if (itemName.equals(((ItemRemovedEvent) event).getItem().name)) {
+                logger.warn("Item '{}' needed for rule '{}' removed. Condition '{}' will no longer work.", itemName,
+                        ruleUID, module.getId());
+                return;
+            }
+        }
     }
 
     @Override
     public boolean isSatisfied(Map<String, Object> inputs) {
-        String itemName = (String) module.getConfiguration().get(ITEM_NAME);
         String state = (String) module.getConfiguration().get(STATE);
         String operator = (String) module.getConfiguration().get(OPERATOR);
         if (operator == null || state == null || itemName == null) {
             logger.error("Module is not well configured: itemName={}  operator={}  state = {}", itemName, operator,
                     state);
-            return false;
-        }
-        if (itemRegistry == null) {
-            logger.error("The ItemRegistry is not available to evaluate the condition.");
             return false;
         }
         try {
@@ -121,7 +159,11 @@ public class ItemStateConditionHandler extends BaseConditionModuleHandler {
         Item item = itemRegistry.getItem(itemName);
         State compareState = TypeParser.parseState(item.getAcceptedDataTypes(), state);
         State itemState = item.getState();
-        if (itemState instanceof QuantityType) {
+        if (itemState instanceof DateTimeType) {
+            ZonedDateTime itemTime = ((DateTimeType) itemState).getZonedDateTime();
+            ZonedDateTime compareTime = getCompareTime(state);
+            return itemTime.compareTo(compareTime) <= 0;
+        } else if (itemState instanceof QuantityType) {
             QuantityType qtState = (QuantityType) itemState;
             if (compareState instanceof DecimalType) {
                 // allow compareState without unit -> implicitly assume its the same as the one from the
@@ -135,6 +177,12 @@ public class ItemStateConditionHandler extends BaseConditionModuleHandler {
                         new QuantityType<>(((DecimalType) compareState).toBigDecimal(), qtState.getUnit())) <= 0;
             } else if (compareState instanceof QuantityType) {
                 return qtState.compareTo((QuantityType) compareState) <= 0;
+            }
+        } else if (itemState instanceof PercentType && null != compareState) {
+            // we need to handle PercentType first, otherwise the comparison will fail
+            PercentType percentState = compareState.as(PercentType.class);
+            if (null != percentState) {
+                return ((PercentType) itemState).compareTo(percentState) <= 0;
             }
         } else if (itemState instanceof DecimalType && null != compareState) {
             DecimalType decimalState = compareState.as(DecimalType.class);
@@ -150,7 +198,11 @@ public class ItemStateConditionHandler extends BaseConditionModuleHandler {
         Item item = itemRegistry.getItem(itemName);
         State compareState = TypeParser.parseState(item.getAcceptedDataTypes(), state);
         State itemState = item.getState();
-        if (itemState instanceof QuantityType) {
+        if (itemState instanceof DateTimeType) {
+            ZonedDateTime itemTime = ((DateTimeType) itemState).getZonedDateTime();
+            ZonedDateTime compareTime = getCompareTime(state);
+            return itemTime.compareTo(compareTime) >= 0;
+        } else if (itemState instanceof QuantityType) {
             QuantityType qtState = (QuantityType) itemState;
             if (compareState instanceof DecimalType) {
                 // allow compareState without unit -> implicitly assume its the same as the one from the
@@ -165,6 +217,12 @@ public class ItemStateConditionHandler extends BaseConditionModuleHandler {
             } else if (compareState instanceof QuantityType) {
                 return qtState.compareTo((QuantityType) compareState) >= 0;
             }
+        } else if (itemState instanceof PercentType && null != compareState) {
+            // we need to handle PercentType first, otherwise the comparison will fail
+            PercentType percentState = compareState.as(PercentType.class);
+            if (null != percentState) {
+                return ((PercentType) itemState).compareTo(percentState) >= 0;
+            }
         } else if (itemState instanceof DecimalType && null != compareState) {
             DecimalType decimalState = compareState.as(DecimalType.class);
             if (null != decimalState) {
@@ -174,7 +232,6 @@ public class ItemStateConditionHandler extends BaseConditionModuleHandler {
         return false;
     }
 
-    @SuppressWarnings("null")
     private boolean equalsToItemState(String itemName, String state) throws ItemNotFoundException {
         Item item = itemRegistry.getItem(itemName);
         State compareState = TypeParser.parseState(item.getAcceptedDataTypes(), state);
@@ -194,5 +251,44 @@ public class ItemStateConditionHandler extends BaseConditionModuleHandler {
             }
         }
         return itemState.equals(compareState);
+    }
+
+    @Override
+    public void dispose() {
+        super.dispose();
+        eventSubscriberRegistration.unregister();
+    }
+
+    private ZonedDateTime getCompareTime(String input) {
+        if (input.isBlank()) {
+            // no parameter given, use now
+            return ZonedDateTime.now();
+        }
+        try {
+            return ZonedDateTime.parse(input);
+        } catch (DateTimeParseException ignored) {
+        }
+        try {
+            return LocalDateTime.parse(input, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                    .atZone(timeZoneProvider.getTimeZone());
+        } catch (DateTimeParseException ignored) {
+        }
+        try {
+            int dayPosition = input.indexOf("D");
+            if (dayPosition == -1) {
+                // no date in string, add period symbol and time separator
+                return ZonedDateTime.now().plus(Duration.parse("PT" + input));
+            } else if (dayPosition == input.length() - 1) {
+                // day is the last symbol, only add the period symbol
+                return ZonedDateTime.now().plus(Duration.parse("P" + input));
+            } else {
+                // add period symbol and time separator
+                return ZonedDateTime.now().plus(Duration
+                        .parse("P" + input.substring(0, dayPosition + 1) + "T" + input.substring(dayPosition + 1)));
+            }
+        } catch (DateTimeParseException e) {
+            logger.warn("Couldn't get a comparable time from '{}', using now", input);
+        }
+        return ZonedDateTime.now();
     }
 }

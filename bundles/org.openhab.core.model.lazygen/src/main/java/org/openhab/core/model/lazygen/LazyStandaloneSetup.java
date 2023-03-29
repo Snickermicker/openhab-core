@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -32,6 +32,7 @@ import org.eclipse.emf.mwe.core.lib.AbstractWorkflowComponent2;
 import org.eclipse.emf.mwe.core.monitor.ProgressMonitor;
 import org.eclipse.emf.mwe.core.resources.ResourceLoaderFactory;
 import org.eclipse.emf.mwe.utils.GenModelHelper;
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,6 +40,7 @@ import org.slf4j.LoggerFactory;
  *
  * @author Holger Schill, Simon Kaufmann - Initial contribution
  */
+@NonNullByDefault
 public class LazyStandaloneSetup extends AbstractWorkflowComponent2 {
 
     private static ResourceSet resourceSet = GlobalResourceSet.getINSTANCE();
@@ -61,7 +63,8 @@ public class LazyStandaloneSetup extends AbstractWorkflowComponent2 {
     }
 
     @Override
-    protected void invokeInternal(WorkflowContext ctx, ProgressMonitor monitor, Issues issues) {
+    protected void invokeInternal(@NonNullByDefault({}) WorkflowContext ctx,
+            @NonNullByDefault({}) ProgressMonitor monitor, @NonNullByDefault({}) Issues issues) {
         for (String generatedEPackage : allgeneratedEPackages) {
             addRegisterGeneratedEPackage(generatedEPackage);
         }

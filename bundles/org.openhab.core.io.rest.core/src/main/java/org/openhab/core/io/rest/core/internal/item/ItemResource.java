@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -13,14 +13,18 @@
 package org.openhab.core.io.rest.core.internal.item;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import javax.annotation.security.RolesAllowed;
@@ -75,7 +79,10 @@ import org.openhab.core.items.events.ItemEventFactory;
 import org.openhab.core.library.items.RollershutterItem;
 import org.openhab.core.library.items.SwitchItem;
 import org.openhab.core.library.types.OnOffType;
+import org.openhab.core.library.types.RawType;
 import org.openhab.core.library.types.UpDownType;
+import org.openhab.core.semantics.SemanticTags;
+import org.openhab.core.semantics.SemanticsPredicates;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.State;
 import org.openhab.core.types.TypeParser;
@@ -203,7 +210,7 @@ public class ItemResource implements RESTResource {
             @HeaderParam(HttpHeaders.ACCEPT_LANGUAGE) @Parameter(description = "language") @Nullable String language,
             @QueryParam("type") @Parameter(description = "item type filter") @Nullable String type,
             @QueryParam("tags") @Parameter(description = "item tag filter") @Nullable String tags,
-            @QueryParam("metadata") @Parameter(description = "metadata selector") @Nullable String namespaceSelector,
+            @QueryParam("metadata") @Parameter(description = "metadata selector - a comma separated list or a regular expression (suppressed if no value given)") @Nullable String namespaceSelector,
             @DefaultValue("false") @QueryParam("recursive") @Parameter(description = "get member items recursively") boolean recursive,
             @QueryParam("fields") @Parameter(description = "limit output to the given fields (comma separated)") @Nullable String fields) {
         final Locale locale = localeService.getLocale(language);
@@ -219,6 +226,30 @@ public class ItemResource implements RESTResource {
         return Response.ok(new Stream2JSONInputStream(itemStream)).build();
     }
 
+    /**
+     *
+     * @param itemname name of the item
+     * @return the namesspace of that item
+     */
+    @GET
+    @RolesAllowed({ Role.USER, Role.ADMIN })
+    @Path("/{itemname: [a-zA-Z_0-9]+}/metadata/namespaces")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Operation(operationId = "getItemNamespaces", summary = "Gets the namespace of an item.", responses = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = String.class))),
+            @ApiResponse(responseCode = "404", description = "Item not found") })
+    public Response getItemNamespaces(@PathParam("itemname") @Parameter(description = "item name") String itemname,
+            @HeaderParam(HttpHeaders.ACCEPT_LANGUAGE) @Parameter(description = "language") @Nullable String language) {
+        final Item item = getItem(itemname);
+
+        if (item != null) {
+            final Collection<String> namespaces = metadataRegistry.getAllNamespaces(itemname);
+            return Response.ok(new Stream2JSONInputStream(namespaces.stream())).build();
+        } else {
+            return getItemNotFoundResponse(itemname);
+        }
+    }
+
     @GET
     @RolesAllowed({ Role.USER, Role.ADMIN })
     @Path("/{itemname: [a-zA-Z_0-9]+}")
@@ -228,7 +259,7 @@ public class ItemResource implements RESTResource {
             @ApiResponse(responseCode = "404", description = "Item not found") })
     public Response getItemData(final @Context UriInfo uriInfo, final @Context HttpHeaders httpHeaders,
             @HeaderParam(HttpHeaders.ACCEPT_LANGUAGE) @Parameter(description = "language") @Nullable String language,
-            @QueryParam("metadata") @Parameter(description = "metadata selector") @Nullable String namespaceSelector,
+            @QueryParam("metadata") @Parameter(description = "metadata selector - a comma separated list or a regular expression (suppressed if no value given)") @Nullable String namespaceSelector,
             @DefaultValue("true") @QueryParam("recursive") @Parameter(description = "get member items if the item is a group item") boolean recursive,
             @PathParam("itemname") @Parameter(description = "item name") String itemname) {
         final Locale locale = localeService.getLocale(language);
@@ -255,8 +286,8 @@ public class ItemResource implements RESTResource {
 
     /**
      *
-     * @param itemname
-     * @return
+     * @param itemname item name to get the state from
+     * @return the state of the item as mime-type text/plain
      */
     @GET
     @RolesAllowed({ Role.USER, Role.ADMIN })
@@ -276,6 +307,47 @@ public class ItemResource implements RESTResource {
             return Response.ok(item.getState().toFullString()).build();
         } else {
             return getItemNotFoundResponse(itemname);
+        }
+    }
+
+    /**
+     *
+     * @param itemname the item from which to get the binary state
+     * @return the binary state of the item
+     */
+    @GET
+    @RolesAllowed({ Role.USER, Role.ADMIN })
+    @Path("/{itemname: [a-zA-Z_0-9]+}/state")
+    @Operation(operationId = "getItemState", summary = "Gets the state of an item.", responses = {
+            @ApiResponse(responseCode = "200", description = "OK"),
+            @ApiResponse(responseCode = "400", description = "Item state is not RawType"),
+            @ApiResponse(responseCode = "404", description = "Item not found"),
+            @ApiResponse(responseCode = "415", description = "MediaType not supported by item state") })
+    public Response getBinaryItemState(@HeaderParam("Accept") @Nullable String mediaType,
+            @PathParam("itemname") @Parameter(description = "item name") String itemname) {
+        List<String> acceptedMediaTypes = Arrays.stream(Objects.requireNonNullElse(mediaType, "").split(","))
+                .map(String::trim).collect(Collectors.toList());
+
+        Item item = getItem(itemname);
+
+        // if it exists
+        if (item != null) {
+            State state = item.getState();
+            if (state instanceof RawType) {
+                String mimeType = ((RawType) state).getMimeType();
+                byte[] data = ((RawType) state).getBytes();
+                if ((acceptedMediaTypes.contains("image/*") && mimeType.startsWith("image/"))
+                        || acceptedMediaTypes.contains(mimeType)) {
+                    return Response.ok(data).type(mimeType).build();
+                } else if (acceptedMediaTypes.contains(MediaType.APPLICATION_OCTET_STREAM)) {
+                    return Response.ok(data).type(MediaType.APPLICATION_OCTET_STREAM).build();
+                } else {
+                    return Response.status(Status.UNSUPPORTED_MEDIA_TYPE).build();
+                }
+            }
+            return Response.status(Status.BAD_REQUEST).build();
+        } else {
+            return Response.status(Status.NOT_FOUND).build();
         }
     }
 
@@ -546,31 +618,50 @@ public class ItemResource implements RESTResource {
                     @ApiResponse(responseCode = "404", description = "Item not found."),
                     @ApiResponse(responseCode = "405", description = "Meta data not editable.") })
     public Response removeMetadata(@PathParam("itemname") @Parameter(description = "item name") String itemname,
-            @PathParam("namespace") @Parameter(description = "namespace") String namespace) {
+            @Nullable @PathParam("namespace") @Parameter(description = "namespace") String namespace) {
         Item item = getItem(itemname);
 
         if (item == null) {
             return Response.status(Status.NOT_FOUND).build();
         }
 
-        MetadataKey key = new MetadataKey(namespace, itemname);
-        if (metadataRegistry.get(key) != null) {
-            if (metadataRegistry.remove(key) == null) {
-                return Response.status(Status.CONFLICT).build();
-            }
+        if (namespace == null) {
+            metadataRegistry.removeItemMetadata(itemname);
         } else {
-            return Response.status(Status.NOT_FOUND).build();
+            MetadataKey key = new MetadataKey(namespace, itemname);
+            if (metadataRegistry.get(key) != null) {
+                if (metadataRegistry.remove(key) == null) {
+                    return Response.status(Status.CONFLICT).build();
+                }
+            } else {
+                return Response.status(Status.NOT_FOUND).build();
+            }
         }
 
         return Response.ok(null, MediaType.TEXT_PLAIN).build();
     }
 
+    @POST
+    @RolesAllowed({ Role.ADMIN })
+    @Path("/metadata/purge")
+    @Operation(operationId = "purgeDatabase", summary = "Remove unused/orphaned metadata.", security = {
+            @SecurityRequirement(name = "oauth2", scopes = { "admin" }) }, responses = {
+                    @ApiResponse(responseCode = "200", description = "OK") })
+    public Response purge() {
+        Collection<String> itemNames = itemRegistry.stream().map(Item::getName)
+                .collect(Collectors.toCollection(HashSet::new));
+
+        metadataRegistry.getAll().stream().filter(md -> !itemNames.contains(md.getUID().getItemName()))
+                .forEach(md -> metadataRegistry.remove(md.getUID()));
+        return Response.ok().build();
+    }
+
     /**
      * Create or Update an item by supplying an item bean.
      *
-     * @param itemname
+     * @param itemname the item name
      * @param item the item bean.
-     * @return
+     * @return Response configured to represent the Item in depending on the status
      */
     @PUT
     @RolesAllowed({ Role.ADMIN })
@@ -711,6 +802,34 @@ public class ItemResource implements RESTResource {
         return JSONResponse.createResponse(Status.OK, responseList, null);
     }
 
+    @GET
+    @RolesAllowed({ Role.USER, Role.ADMIN })
+    @Path("/{itemName: \\w+}/semantic/{semanticClass: \\w+}")
+    @Operation(operationId = "getSemanticItem", summary = "Gets the item which defines the requested semantics of an item.", responses = {
+            @ApiResponse(responseCode = "200", description = "OK"),
+            @ApiResponse(responseCode = "404", description = "Item not found") })
+    public Response getSemanticItem(final @Context UriInfo uriInfo, final @Context HttpHeaders httpHeaders,
+            @HeaderParam(HttpHeaders.ACCEPT_LANGUAGE) @Parameter(description = "language") @Nullable String language,
+            @PathParam("itemName") @Parameter(description = "item name") String itemName,
+            @PathParam("semanticClass") @Parameter(description = "semantic class") String semanticClassName) {
+        Locale locale = localeService.getLocale(language);
+
+        Class<? extends org.openhab.core.semantics.Tag> semanticClass = SemanticTags.getById(semanticClassName);
+        if (semanticClass == null) {
+            return Response.status(Status.NOT_FOUND).build();
+        }
+
+        Item foundItem = findParentByTag(getItem(itemName), SemanticsPredicates.isA(semanticClass));
+        if (foundItem == null) {
+            return Response.status(Status.NOT_FOUND).build();
+        }
+
+        EnrichedItemDTO dto = EnrichedItemDTOMapper.map(foundItem, false, null, uriBuilder(uriInfo, httpHeaders),
+                locale);
+        dto.editable = isEditable(dto.name);
+        return JSONResponse.createResponse(Status.OK, dto, null);
+    }
+
     private JsonObject buildStatusObject(String itemName, String status, @Nullable String message) {
         JsonObject jo = new JsonObject();
         jo.addProperty("name", itemName);
@@ -719,10 +838,24 @@ public class ItemResource implements RESTResource {
         return jo;
     }
 
+    private @Nullable Item findParentByTag(@Nullable Item item, Predicate<Item> predicate) {
+        if (item == null) {
+            return null;
+        }
+
+        if (predicate.test(item)) {
+            return item;
+        }
+
+        // check parents
+        return item.getGroupNames().stream().map(this::getItem).map(i -> findParentByTag(i, predicate))
+                .filter(Objects::nonNull).findAny().orElse(null);
+    }
+
     /**
-     * helper: Response to be sent to client if a Thing cannot be found
+     * helper: Response to be sent to client if an item cannot be found
      *
-     * @param thingUID
+     * @param itemname item name that could not be found
      * @return Response configured for 'item not found'
      */
     private static Response getItemNotFoundResponse(String itemname) {
@@ -731,10 +864,10 @@ public class ItemResource implements RESTResource {
     }
 
     /**
-     * Prepare a response representing the Item depending in the status.
+     * Prepare a response representing the Item depending on the status.
      *
      * @param uriBuilder the URI builder
-     * @param status
+     * @param status http status
      * @param item can be null
      * @param locale the locale
      * @param errormessage optional message in case of error
@@ -749,7 +882,7 @@ public class ItemResource implements RESTResource {
     /**
      * convenience shortcut
      *
-     * @param itemname
+     * @param itemname the name of the item to be retrieved
      * @return Item addressed by itemname
      */
     private @Nullable Item getItem(String itemname) {

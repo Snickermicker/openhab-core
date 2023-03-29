@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -19,6 +19,7 @@ import java.util.Collection;
 import java.util.Locale;
 import java.util.Optional;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.openhab.core.test.java.JavaOSGiTest;
@@ -31,9 +32,10 @@ import org.openhab.core.thing.profiles.ProfileTypeProvider;
  *
  * @author Christoph Weitkamp - Initial contribution
  */
+@NonNullByDefault
 public class SystemProfileI18nOSGiTest extends JavaOSGiTest {
 
-    private ProfileTypeProvider systemProfileTypeProvider;
+    private @NonNullByDefault({}) ProfileTypeProvider systemProfileTypeProvider;
 
     @BeforeEach
     public void setUp() {

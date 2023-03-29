@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -14,7 +14,7 @@ package org.openhab.core.io.transport.modbus;
 
 import java.util.stream.Stream;
 
-import org.eclipse.jdt.annotation.NonNull;
+import org.eclipse.jdt.annotation.NonNullByDefault;
 
 import net.wimpi.modbus.Modbus;
 
@@ -23,6 +23,7 @@ import net.wimpi.modbus.Modbus;
  *
  * @author Sami Salonen - Initial contribution
  */
+@NonNullByDefault
 public enum ModbusWriteFunctionCode {
     WRITE_COIL(Modbus.WRITE_COIL),
     WRITE_MULTIPLE_COILS(Modbus.WRITE_MULTIPLE_COILS),
@@ -51,8 +52,7 @@ public enum ModbusWriteFunctionCode {
      * @return {@link ModbusWriteFunctionCode} matching the numeric function code
      * @throws IllegalArgumentException with unsupported functions
      */
-    @SuppressWarnings("null")
-    public static @NonNull ModbusWriteFunctionCode fromFunctionCode(int functionCode) throws IllegalArgumentException {
+    public static ModbusWriteFunctionCode fromFunctionCode(int functionCode) throws IllegalArgumentException {
         return Stream.of(ModbusWriteFunctionCode.values()).filter(v -> v.getFunctionCode() == functionCode).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Invalid functionCode"));
     }

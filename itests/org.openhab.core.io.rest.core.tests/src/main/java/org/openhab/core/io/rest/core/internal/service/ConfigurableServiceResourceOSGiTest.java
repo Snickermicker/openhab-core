@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -27,6 +27,7 @@ import java.util.Optional;
 
 import javax.ws.rs.core.Response;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.openhab.core.io.rest.core.service.ConfigurableServiceDTO;
@@ -41,12 +42,13 @@ import org.osgi.service.cm.ConfigurationAdmin;
  * @author Dennis Nobel - Initial contribution
  * @author Wouter Born - Migrate tests from Groovy to Java
  */
+@NonNullByDefault
 public class ConfigurableServiceResourceOSGiTest extends JavaOSGiTest {
 
     public interface SomeServiceInterface {
     }
 
-    private ConfigurableServiceResource configurableServiceResource;
+    private @NonNullByDefault({}) ConfigurableServiceResource configurableServiceResource;
     private final AsyncResultWrapper<Dictionary<String, Object>> propertiesWrapper = new AsyncResultWrapper<>();
 
     @BeforeEach

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -19,6 +19,7 @@ import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.Test;
 import org.openhab.core.items.GroupFunction;
 import org.openhab.core.library.items.NumberItem;
@@ -28,6 +29,7 @@ import org.openhab.core.library.types.StringType;
 /**
  * @author Stefan Triller - Initial contribution
  */
+@NonNullByDefault
 public class ItemDTOMapperTest {
 
     @Test

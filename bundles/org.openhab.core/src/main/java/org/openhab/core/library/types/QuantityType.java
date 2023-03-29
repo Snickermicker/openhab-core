@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -160,8 +160,6 @@ public class QuantityType<T extends Quantity<T>> extends Number
      *
      * @param value the non null measurement value.
      * @param unit the non null measurement unit.
-     * @param conversionUnits the optional unit map which is used to determine the {@link MeasurementSystem} specific
-     *            unit for conversion.
      */
     public QuantityType(Number value, Unit<T> unit) {
         // Avoid scientific notation for double
@@ -219,9 +217,10 @@ public class QuantityType<T extends Quantity<T>> extends Number
             return false;
         }
         QuantityType<?> other = (QuantityType<?>) obj;
-        if (!quantity.getUnit().isCompatible(other.quantity.getUnit())) {
+        if (!quantity.getUnit().isCompatible(other.quantity.getUnit())
+                && !quantity.getUnit().inverse().isCompatible(other.quantity.getUnit())) {
             return false;
-        } else if (compareTo((QuantityType<T>) other) != 0) {
+        } else if (internalCompareTo(other) != 0) {
             return false;
         }
 
@@ -230,6 +229,10 @@ public class QuantityType<T extends Quantity<T>> extends Number
 
     @Override
     public int compareTo(QuantityType<T> o) {
+        return internalCompareTo((QuantityType<?>) o);
+    }
+
+    private int internalCompareTo(QuantityType<?> o) {
         if (quantity.getUnit().isCompatible(o.quantity.getUnit())) {
             QuantityType<T> v1 = this.toUnit(getUnit().getSystemUnit());
             QuantityType<?> v2 = o.toUnit(o.getUnit().getSystemUnit());
@@ -238,6 +241,8 @@ public class QuantityType<T extends Quantity<T>> extends Number
             } else {
                 throw new IllegalArgumentException("Unable to convert to system unit during compare.");
             }
+        } else if (quantity.getUnit().inverse().isCompatible(o.quantity.getUnit())) {
+            return inverse().internalCompareTo(o);
         } else {
             throw new IllegalArgumentException("Can not compare incompatible units.");
         }
@@ -255,7 +260,7 @@ public class QuantityType<T extends Quantity<T>> extends Number
      * Convert this QuantityType to a new {@link QuantityType} using the given target unit.
      *
      * @param targetUnit the unit to which this {@link QuantityType} will be converted to.
-     * @return the new {@link QuantityType} in the given {@link Unit} or {@code null} in case of a
+     * @return the new {@link QuantityType} in the given {@link Unit} or {@code null} in case of an error.
      */
     @SuppressWarnings("unchecked")
     public @Nullable QuantityType<T> toUnit(Unit<?> targetUnit) {
@@ -281,6 +286,57 @@ public class QuantityType<T extends Quantity<T>> extends Number
         }
 
         return null;
+    }
+
+    /**
+     * Convert this QuantityType to a new {@link QuantityType} using the given target unit.
+     *
+     * Implicit conversions using inverse units are allowed (i.e. mired <=> Kelvin). This may
+     * change the dimension.
+     *
+     * @param targetUnit the unit to which this {@link QuantityType} will be converted to.
+     * @return the new {@link QuantityType} in the given {@link Unit} or {@code null} in case of an erro.
+     */
+    public @Nullable QuantityType<?> toInvertibleUnit(Unit<?> targetUnit) {
+        if (!targetUnit.equals(getUnit()) && getUnit().inverse().isCompatible(targetUnit)) {
+            return inverse().toUnit(targetUnit);
+        }
+        return toUnit(targetUnit);
+    }
+
+    @SuppressWarnings("unchecked")
+    public @Nullable QuantityType<?> toInvertibleUnit(String targetUnit) {
+        Unit<?> unit = AbstractUnit.parse(targetUnit);
+        if (unit != null) {
+            return toInvertibleUnit(unit);
+        }
+
+        return null;
+    }
+
+    /**
+     * Convert this QuantityType to a new {@link QuantityType} using the given target unit.
+     *
+     * Similar to {@link toUnit}, except that it treats the values as relative instead of absolute.
+     * This means that any offsets in the conversion of absolute values are ignored.
+     * This is useful when your quantity represents a delta, and not necessarily a measured
+     * value itself. For example, 32 °F, when converted with toUnit to Celsius, it will become 0 °C.
+     * But when converted with toUnitRelative, it will become 17.8 °C.
+     *
+     * @param targetUnit the unit to which this {@link QuantityType} will be converted to.
+     * @return the new {@link QuantityType} in the given {@link Unit} or {@code null} in case of an error.
+     */
+    @SuppressWarnings("unchecked")
+    public @Nullable QuantityType<T> toUnitRelative(Unit<T> targetUnit) {
+        if (targetUnit.equals(getUnit())) {
+            return this;
+        }
+        if (!quantity.getUnit().isCompatible(targetUnit)) {
+            return null;
+        }
+        Quantity<?> result = quantity.to(targetUnit);
+
+        return new QuantityType<T>(result.getValue(), targetUnit);
     }
 
     public BigDecimal toBigDecimal() {
@@ -399,10 +455,13 @@ public class QuantityType<T extends Quantity<T>> extends Number
             return target.cast(new HSBType(DecimalType.ZERO, PercentType.ZERO,
                     new PercentType(toBigDecimal().multiply(BIG_DECIMAL_HUNDRED))));
         } else if (target == PercentType.class) {
-            if (Units.PERCENT.equals(getUnit())) {
-                return target.cast(new PercentType(toBigDecimal()));
+            QuantityType<T> inPercent = toUnit(Units.PERCENT);
+            if (inPercent == null) {
+                // incompatible unit
+                return null;
+            } else {
+                return target.cast(new PercentType(inPercent.toBigDecimal()));
             }
-            return target.cast(new PercentType(toBigDecimal().multiply(BIG_DECIMAL_HUNDRED)));
         } else if (target == DecimalType.class) {
             return target.cast(new DecimalType(toBigDecimal()));
         } else {
@@ -489,5 +548,14 @@ public class QuantityType<T extends Quantity<T>> extends Number
         final Quantity<T> sum = Arrays.asList(quantity, offset.quantity).stream().reduce(QuantityFunctions.sum(unit))
                 .get();
         return new QuantityType<T>(sum);
+    }
+
+    /**
+     * Return the reciprocal of this QuantityType.
+     * 
+     * @return a QuantityType with both the value and unit reciprocated
+     */
+    public QuantityType<?> inverse() {
+        return new QuantityType<>(this.quantity.inverse());
     }
 }

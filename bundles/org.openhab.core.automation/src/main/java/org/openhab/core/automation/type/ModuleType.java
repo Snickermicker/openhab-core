@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -30,7 +30,7 @@ import org.openhab.core.config.core.ConfigDescriptionParameter;
  * defines the meta-information needed for creation of a {@link Module} instance which is a building block for a
  * {@link Rule}. The meta-information describes the {@link Configuration} of a {@link Module} providing list with
  * {@link ConfigDescriptionParameter}s, {@link Input}s and {@link Output}s of a {@link Module}. Each {@link ModuleType}
- * instance owns an unique id which is used as reference in the {@link Module}s, to find their meta-information.
+ * instance owns a unique id which is used as reference in the {@link Module}s, to find their meta-information.
  * <p>
  * Whether the {@link ModuleType}s can be used by anyone, depends from their {@link Visibility} value, but they can be
  * modified only by their creator.

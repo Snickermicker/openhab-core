@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.Map;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,30 +49,31 @@ import org.openhab.core.thing.type.ChannelType;
  * @author Simon Kaufmann - Initial contribution
  */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.WARN)
+@MockitoSettings(strictness = Strictness.LENIENT)
+@NonNullByDefault
 public class SystemProfileFactoryOSGiTest extends JavaOSGiTest {
 
     private final Map<String, Object> properties = Map.of(SystemOffsetProfile.OFFSET_PARAM, BigDecimal.ZERO,
             SystemHysteresisStateProfile.LOWER_PARAM, BigDecimal.TEN, SystemRangeStateProfile.UPPER_PARAM,
             BigDecimal.valueOf(40));
 
-    private SystemProfileFactory profileFactory;
+    private @NonNullByDefault({}) SystemProfileFactory profileFactory;
 
-    private @Mock ProfileCallback mockCallback;
-    private @Mock ProfileContext mockContext;
+    private @Mock @NonNullByDefault({}) ProfileCallback callbackMock;
+    private @Mock @NonNullByDefault({}) ProfileContext contextMock;
 
     @BeforeEach
     public void beforeEach() {
         profileFactory = getService(ProfileTypeProvider.class, SystemProfileFactory.class);
         assertNotNull(profileFactory);
 
-        when(mockContext.getConfiguration()).thenReturn(new Configuration(properties));
+        when(contextMock.getConfiguration()).thenReturn(new Configuration(properties));
     }
 
     @Test
     public void systemProfileTypesAndUidsShouldBeAvailable() {
         Collection<ProfileTypeUID> systemProfileTypeUIDs = profileFactory.getSupportedProfileTypeUIDs();
-        assertThat(systemProfileTypeUIDs, hasSize(20));
+        assertThat(systemProfileTypeUIDs, hasSize(21));
 
         Collection<ProfileType> systemProfileTypes = profileFactory.getProfileTypes(null);
         assertThat(systemProfileTypes, hasSize(systemProfileTypeUIDs.size()));
@@ -80,7 +82,7 @@ public class SystemProfileFactoryOSGiTest extends JavaOSGiTest {
     @Test
     public void testFactoryCreatesAvailableProfiles() {
         for (ProfileTypeUID profileTypeUID : profileFactory.getSupportedProfileTypeUIDs()) {
-            assertNotNull(profileFactory.createProfile(profileTypeUID, mockCallback, mockContext));
+            assertNotNull(profileFactory.createProfile(profileTypeUID, callbackMock, contextMock));
         }
     }
 

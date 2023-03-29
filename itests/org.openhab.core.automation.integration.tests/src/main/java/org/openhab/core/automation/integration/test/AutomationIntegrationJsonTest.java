@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -44,7 +44,6 @@ import org.openhab.core.automation.type.TriggerType;
 import org.openhab.core.common.registry.ProviderChangeListener;
 import org.openhab.core.config.core.ConfigDescriptionParameter;
 import org.openhab.core.events.Event;
-import org.openhab.core.events.EventFilter;
 import org.openhab.core.events.EventPublisher;
 import org.openhab.core.events.EventSubscriber;
 import org.openhab.core.items.Item;
@@ -71,17 +70,18 @@ import org.slf4j.LoggerFactory;
  * @author Marin Mitev - make the test to pass on each run
  * @author Kai Kreuzer - refactored to Java
  */
+@NonNullByDefault
 public class AutomationIntegrationJsonTest extends JavaOSGiTest {
 
     private final Logger logger = LoggerFactory.getLogger(AutomationIntegrationJsonTest.class);
-    private EventPublisher eventPublisher;
-    private ItemRegistry itemRegistry;
-    private RuleRegistry ruleRegistry;
-    private RuleManager ruleManager;
-    private ManagedRuleProvider managedRuleProvider;
-    private ModuleTypeRegistry moduleTypeRegistry;
-    private @SuppressWarnings("unused") Event ruleEvent;
-    public Event itemEvent;
+    private @NonNullByDefault({}) EventPublisher eventPublisher;
+    private @NonNullByDefault({}) ItemRegistry itemRegistry;
+    private @NonNullByDefault({}) RuleRegistry ruleRegistry;
+    private @NonNullByDefault({}) RuleManager ruleManager;
+    private @NonNullByDefault({}) ManagedRuleProvider managedRuleProvider;
+    private @NonNullByDefault({}) ModuleTypeRegistry moduleTypeRegistry;
+    private @Nullable @SuppressWarnings("unused") Event ruleEvent;
+    public @Nullable Event itemEvent;
 
     // keep storage rules imported from json files
     public static final VolatileStorageService VOLATILE_STORAGE_SERVICE = new VolatileStorageService();
@@ -92,7 +92,6 @@ public class AutomationIntegrationJsonTest extends JavaOSGiTest {
 
         getService(ItemRegistry.class);
 
-        @NonNullByDefault
         ItemProvider itemProvider = new ItemProvider() {
 
             @Override
@@ -117,17 +116,11 @@ public class AutomationIntegrationJsonTest extends JavaOSGiTest {
         registerService(itemProvider);
         registerVolatileStorageService();
 
-        @NonNullByDefault
         EventSubscriber ruleEventHandler = new EventSubscriber() {
 
             @Override
             public Set<String> getSubscribedEventTypes() {
                 return Set.of(RuleStatusInfoEvent.TYPE);
-            }
-
-            @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
             }
 
             @Override
@@ -254,9 +247,10 @@ public class AutomationIntegrationJsonTest extends JavaOSGiTest {
                 .filter(t -> "ItemStateChangeTriggerID".equals(t.getId())).findFirst();
         assertThat(trigger.isPresent(), is(true));
         assertThat(trigger.get().getTypeUID(), is("core.GenericEventTrigger"));
-        assertThat(trigger.get().getConfiguration().get("eventSource"), is("myMotionItem"));
-        assertThat(trigger.get().getConfiguration().get("eventTopic"), is("openhab/items/*"));
-        assertThat(trigger.get().getConfiguration().get("eventTypes"), is("ItemStateEvent"));
+        assertThat(trigger.get().getConfiguration().get("source"), is(""));
+        assertThat(trigger.get().getConfiguration().get("topic"), is("openhab/items/myMotionItem/*"));
+        assertThat(trigger.get().getConfiguration().get("types"), is("ItemStateEvent"));
+        assertThat(trigger.get().getConfiguration().get("payload"), is(""));
         Optional<? extends Action> action = rule.getActions().stream()
                 .filter(a -> "ItemPostCommandActionID".equals(a.getId())).findFirst();
         assertThat(action.isPresent(), is(true));
@@ -294,8 +288,10 @@ public class AutomationIntegrationJsonTest extends JavaOSGiTest {
                 .filter(t -> "ItemStateChangeTriggerID".equals(t.getId())).findFirst();
         assertThat(trigger.isPresent(), is(true));
         assertThat(trigger.get().getTypeUID(), is("core.GenericEventTrigger"));
-        assertThat(trigger.get().getConfiguration().get("eventTopic"), is("openhab/items/*"));
-        assertThat(trigger.get().getConfiguration().get("eventTypes"), is("ItemStateEvent"));
+        assertThat(trigger.get().getConfiguration().get("source"), is(""));
+        assertThat(trigger.get().getConfiguration().get("topic"), is("openhab/items/myMotionItem/*"));
+        assertThat(trigger.get().getConfiguration().get("types"), is("ItemStateEvent"));
+        assertThat(trigger.get().getConfiguration().get("payload"), is(""));
         Optional<? extends Action> action = rule.getActions().stream()
                 .filter(a -> "ItemPostCommandActionID".equals(a.getId())).findFirst();
         assertThat(action.isPresent(), is(true));
@@ -307,17 +303,11 @@ public class AutomationIntegrationJsonTest extends JavaOSGiTest {
         // run the rule to check if the runtime rule has resolved module references and is executed successfully
         EventPublisher eventPublisher = getService(EventPublisher.class);
 
-        @NonNullByDefault
         EventSubscriber itemEventHandler = new EventSubscriber() {
 
             @Override
             public Set<String> getSubscribedEventTypes() {
                 return Set.of(ItemCommandEvent.TYPE);
-            }
-
-            @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
             }
 
             @Override
@@ -358,17 +348,11 @@ public class AutomationIntegrationJsonTest extends JavaOSGiTest {
         SwitchItem myMotionItem = (SwitchItem) itemRegistry.getItem("myMotionItem");
         assertThat(myMotionItem.getState(), is(UnDefType.NULL));
 
-        @NonNullByDefault
         EventSubscriber eventHandler = new EventSubscriber() {
 
             @Override
             public Set<String> getSubscribedEventTypes() {
                 return Set.of(ItemCommandEvent.TYPE);
-            }
-
-            @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
             }
 
             @Override

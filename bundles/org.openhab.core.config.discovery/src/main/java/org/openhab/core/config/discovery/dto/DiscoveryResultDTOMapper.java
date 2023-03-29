@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -19,7 +19,7 @@ import org.openhab.core.thing.ThingTypeUID;
 import org.openhab.core.thing.ThingUID;
 
 /**
- * The {@link DiscoveryResultDTOMapper} is an utility class to map discovery results into discovery result transfer
+ * The {@link DiscoveryResultDTOMapper} is a utility class to map discovery results into discovery result transfer
  * objects.
  *
  * @author Stefan Bussweiler - Initial contribution

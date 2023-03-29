@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -151,7 +151,7 @@ public class SemanticTags {
      * Determines the semantic {@link Point} type of an {@link Item}.
      *
      * @param item the Item to get the Point for
-     * @return a sub-type of a {@link Point}if the Item represents an Point, otherwise null
+     * @return a sub-type of a {@link Point}if the Item represents a Point, otherwise null
      */
     @SuppressWarnings("unchecked")
     public static @Nullable Class<? extends Point> getPoint(Item item) {

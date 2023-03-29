@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -13,18 +13,16 @@
 package org.openhab.core.io.monitor.internal.metrics;
 
 import java.util.Collection;
-import java.util.Dictionary;
 import java.util.HashSet;
-import java.util.Hashtable;
 import java.util.Set;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.automation.Rule;
 import org.openhab.core.automation.RuleRegistry;
 import org.openhab.core.automation.RuleStatus;
 import org.openhab.core.automation.events.RuleStatusInfoEvent;
 import org.openhab.core.events.Event;
-import org.openhab.core.events.EventFilter;
 import org.openhab.core.events.EventSubscriber;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceRegistration;
@@ -40,20 +38,19 @@ import io.micrometer.core.instrument.Tag;
  *
  * @author Robert Bach - Initial contribution
  */
+@NonNullByDefault
 public class RuleMetric implements OpenhabCoreMeterBinder, EventSubscriber {
 
     public static final String METRIC_NAME = "openhab.rule.runs";
     public static final String RULES_TOPIC_PREFIX = "openhab/rules/";
     public static final String RULES_TOPIC_SUFFIX = "/state";
-    public static final String SUBSCRIPTION_PROPERTY_TOPIC = "event.topics";
-    public static final String RULES_TOPIC_FILTER = "openhab/rules/*";
     private final Logger logger = LoggerFactory.getLogger(RuleMetric.class);
     private static final Tag CORE_RULE_METRIC_TAG = Tag.of("metric", "openhab.core.metric.rules");
     private static final String RULE_ID_TAG_NAME = "rule";
     private static final String RULE_NAME_TAG_NAME = "rulename";
     private @Nullable MeterRegistry meterRegistry;
     private final Set<Tag> tags = new HashSet<>();
-    private ServiceRegistration<?> eventSubscriberRegistration;
+    private @Nullable ServiceRegistration<?> eventSubscriberRegistration;
     private BundleContext bundleContext;
     private RuleRegistry ruleRegistry;
 
@@ -65,14 +62,11 @@ public class RuleMetric implements OpenhabCoreMeterBinder, EventSubscriber {
     }
 
     @Override
-    public void bindTo(MeterRegistry meterRegistry) {
+    public void bindTo(@NonNullByDefault({}) MeterRegistry meterRegistry) {
         unbind();
         logger.debug("RuleMetric is being bound...");
         this.meterRegistry = meterRegistry;
-        Dictionary<String, Object> properties = new Hashtable<>();
-        properties.put(SUBSCRIPTION_PROPERTY_TOPIC, RULES_TOPIC_FILTER);
-        eventSubscriberRegistration = this.bundleContext.registerService(EventSubscriber.class.getName(), this,
-                properties);
+        eventSubscriberRegistration = this.bundleContext.registerService(EventSubscriber.class.getName(), this, null);
     }
 
     @Override
@@ -101,11 +95,6 @@ public class RuleMetric implements OpenhabCoreMeterBinder, EventSubscriber {
     }
 
     @Override
-    public @Nullable EventFilter getEventFilter() {
-        return null;
-    }
-
-    @Override
     public void receive(Event event) {
         MeterRegistry meterRegistry = this.meterRegistry;
         if (meterRegistry == null) {
@@ -130,7 +119,7 @@ public class RuleMetric implements OpenhabCoreMeterBinder, EventSubscriber {
         meterRegistry.counter(METRIC_NAME, tagsWithRule).increment();
     }
 
-    private String getRuleName(String ruleId) {
+    private @Nullable String getRuleName(String ruleId) {
         Rule rule = ruleRegistry.get(ruleId);
         return rule == null ? null : rule.getName();
     }

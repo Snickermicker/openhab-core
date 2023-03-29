@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,10 +12,11 @@
  */
 package org.openhab.core.io.console.karaf.internal;
 
+import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
+import org.apache.felix.service.command.Process;
 import org.apache.karaf.shell.api.action.Action;
 import org.apache.karaf.shell.api.action.lifecycle.Reference;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
@@ -66,9 +67,9 @@ public class CommandWrapper implements Command, Action {
 
     @Override
     public Object execute(Session session, List<Object> argList) throws Exception {
-        String[] args = argList.stream().map(a -> a.toString()).collect(Collectors.toList()).toArray(new String[0]);
-
-        final Console console = new OSGiConsole(getScope());
+        String[] args = argList.stream().map(Object::toString).toArray(String[]::new);
+        PrintStream out = Process.Utils.current().out();
+        final Console console = new OSGiConsole(getScope(), out);
 
         if (args.length == 1 && "--help".equals(args[0])) {
             for (final String usage : command.getUsages()) {
@@ -81,8 +82,8 @@ public class CommandWrapper implements Command, Action {
     }
 
     @Override
-    public Completer getCompleter(boolean arg0) {
-        return null;
+    public Completer getCompleter(boolean scoped) {
+        return new CompleterWrapper(command, scoped);
     }
 
     @Override

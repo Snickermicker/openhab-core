@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -15,7 +15,6 @@ package org.openhab.core.thing.internal.firmware;
 import static org.openhab.core.thing.firmware.FirmwareStatusInfo.*;
 
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
@@ -35,7 +34,6 @@ import org.openhab.core.common.ThreadPoolManager;
 import org.openhab.core.config.core.validation.ConfigDescriptionValidator;
 import org.openhab.core.config.core.validation.ConfigValidationException;
 import org.openhab.core.events.Event;
-import org.openhab.core.events.EventFilter;
 import org.openhab.core.events.EventPublisher;
 import org.openhab.core.events.EventSubscriber;
 import org.openhab.core.i18n.LocaleProvider;
@@ -79,7 +77,7 @@ public final class FirmwareUpdateServiceImpl implements FirmwareUpdateService, E
     protected static final String PERIOD_CONFIG_KEY = "period";
     protected static final String DELAY_CONFIG_KEY = "delay";
     protected static final String TIME_UNIT_CONFIG_KEY = "timeUnit";
-    private static final String CONFIG_DESC_URI_KEY = "system:firmware-status-info-job";
+    private static final URI CONFIG_DESC_URI = URI.create("system:firmware-status-info-job");
 
     private final Logger logger = LoggerFactory.getLogger(FirmwareUpdateServiceImpl.class);
 
@@ -266,11 +264,6 @@ public final class FirmwareUpdateServiceImpl implements FirmwareUpdateService, E
     }
 
     @Override
-    public @Nullable EventFilter getEventFilter() {
-        return null;
-    }
-
-    @Override
     public void receive(Event event) {
         if (event instanceof ThingStatusInfoChangedEvent) {
             ThingStatusInfoChangedEvent changedEvent = (ThingStatusInfoChangedEvent) event;
@@ -433,8 +426,8 @@ public final class FirmwareUpdateServiceImpl implements FirmwareUpdateService, E
         }
 
         try {
-            configDescriptionValidator.validate(config, new URI(CONFIG_DESC_URI_KEY));
-        } catch (URISyntaxException | ConfigValidationException e) {
+            configDescriptionValidator.validate(config, CONFIG_DESC_URI);
+        } catch (ConfigValidationException e) {
             logger.debug("Validation of new configuration values failed. Will keep current configuration.", e);
             return false;
         }

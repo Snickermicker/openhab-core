@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -65,7 +65,6 @@ import org.openhab.core.config.core.ConfigDescriptionParameter;
 import org.openhab.core.config.core.ConfigDescriptionParameterBuilder;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.events.Event;
-import org.openhab.core.events.EventFilter;
 import org.openhab.core.events.EventPublisher;
 import org.openhab.core.events.EventSubscriber;
 import org.openhab.core.items.Item;
@@ -198,11 +197,6 @@ public class AutomationIntegrationTest extends JavaOSGiTest {
             }
 
             @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
-            }
-
-            @Override
             public void receive(Event e) {
                 logger.info("RuleEvent: {}", e.getTopic());
                 ruleEvent = e;
@@ -260,12 +254,11 @@ public class AutomationIntegrationTest extends JavaOSGiTest {
     public void assertThatARuleWithConnectionsIsExecuted() {
         logger.info("assert that a rule with connections is executed");
         Map<String, Object> params = new HashMap<>();
-        params.put("eventSource", "myMotionItem3");
-        params.put("eventTopic", "openhab/*");
-        params.put("eventTypes", "ItemStateEvent");
+        params.put("topic", "openhab/items/myMotionItem3/*");
+        params.put("types", "ItemStateEvent");
         Configuration triggerConfig = new Configuration(params);
         params = new HashMap<>();
-        params.put("eventTopic", "openhab/*");
+        params.put("topic", "openhab/**");
         Configuration condition1Config = new Configuration(params);
         params = new HashMap<>();
         params.put("itemName", "myLampItem3");
@@ -299,11 +292,6 @@ public class AutomationIntegrationTest extends JavaOSGiTest {
             }
 
             @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
-            }
-
-            @Override
             public void receive(Event e) {
                 logger.info("RuleEvent: {}", e.getTopic());
                 ruleEvents.add((RuleStatusInfoEvent) e);
@@ -332,7 +320,7 @@ public class AutomationIntegrationTest extends JavaOSGiTest {
         params.put("eventTypes", "ItemStateEvent");
         Configuration triggerConfig = new Configuration(params);
         params = new HashMap<>();
-        params.put("topic", "openhab/*");
+        params.put("topic", "openhab/**");
         Configuration condition1Config = new Configuration(params);
         params = new HashMap<>();
         params.put("itemName", "myLampItem3");
@@ -396,11 +384,6 @@ public class AutomationIntegrationTest extends JavaOSGiTest {
             }
 
             @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
-            }
-
-            @Override
             public void receive(Event e) {
                 logger.info("Event: {}", e.getTopic());
                 if (e.getTopic().contains("myLampItem3")) {
@@ -420,7 +403,7 @@ public class AutomationIntegrationTest extends JavaOSGiTest {
 
     @Test
     public void assertThatRuleNowMethodExecutesActionsOfTheRule() throws ItemNotFoundException {
-        Configuration triggerConfig = new Configuration(Map.of("eventTopic", "runNowEventTopic/*"));
+        Configuration triggerConfig = new Configuration(Map.of("topic", "runNowEventTopic/*"));
         Map<String, Object> params = new HashMap<>();
         params.put("itemName", "myLampItem3");
         params.put("command", "TOGGLE");
@@ -461,11 +444,6 @@ public class AutomationIntegrationTest extends JavaOSGiTest {
             }
 
             @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
-            }
-
-            @Override
             public void receive(Event e) {
                 logger.info("Event: {}", e.getTopic());
                 if (e.getTopic().contains("myLampItem3")) {
@@ -488,7 +466,7 @@ public class AutomationIntegrationTest extends JavaOSGiTest {
 
     @Test
     public void assertThatRuleCanBeUpdated() throws ItemNotFoundException {
-        Configuration triggerConfig = new Configuration(Map.of("eventTopic", "runNowEventTopic/*"));
+        Configuration triggerConfig = new Configuration(Map.of("topic", "runNowEventTopic/*"));
         Map<String, Object> params = new HashMap<>();
         params.put("itemName", "myLampItem3");
         params.put("command", "ON");
@@ -513,11 +491,6 @@ public class AutomationIntegrationTest extends JavaOSGiTest {
             @Override
             public Set<String> getSubscribedEventTypes() {
                 return Set.of(ItemCommandEvent.TYPE);
-            }
-
-            @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
             }
 
             @Override
@@ -597,11 +570,6 @@ public class AutomationIntegrationTest extends JavaOSGiTest {
             }
 
             @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
-            }
-
-            @Override
             public void receive(Event e) {
                 logger.info("Event: {}", e.getTopic());
                 if (e.getTopic().contains("myLampItem4")) {
@@ -625,9 +593,8 @@ public class AutomationIntegrationTest extends JavaOSGiTest {
         logger.info("assert a rule added by api is executed as expected");
         // Creation of RULE
         Map<String, Object> params = new HashMap<>();
-        params.put("eventSource", "myMotionItem2");
-        params.put("eventTopic", "openhab/*");
-        params.put("eventTypes", "ItemStateEvent");
+        params.put("topic", "openhab/items/myMotionItem2/*");
+        params.put("types", "ItemStateEvent");
         Configuration triggerConfig = new Configuration(params);
         params = new HashMap<>();
         params.put("itemName", "myLampItem2");
@@ -710,11 +677,6 @@ public class AutomationIntegrationTest extends JavaOSGiTest {
             }
 
             @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
-            }
-
-            @Override
             public void receive(Event e) {
                 logger.info("Event: {}", e.getTopic());
                 if (e.getTopic().contains("templ_LampItem")) {
@@ -766,11 +728,6 @@ public class AutomationIntegrationTest extends JavaOSGiTest {
             @Override
             public Set<String> getSubscribedEventTypes() {
                 return Set.of(ItemCommandEvent.TYPE);
-            }
-
-            @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
             }
 
             @Override
@@ -895,9 +852,8 @@ public class AutomationIntegrationTest extends JavaOSGiTest {
         int rand = new Random().nextInt();
 
         Map<String, Object> configs = new HashMap<>();
-        configs.put("eventSource", "myMotionItem2");
-        configs.put("eventTopic", "openhab/*");
-        configs.put("eventTypes", "ItemStateEvent");
+        configs.put("topic", "openhab/items/myMotionItem2/*");
+        configs.put("types", "ItemStateEvent");
         Configuration triggerConfig = new Configuration(configs);
         configs = new HashMap<>();
         configs.put("itemName", "myLampItem2");
@@ -921,9 +877,8 @@ public class AutomationIntegrationTest extends JavaOSGiTest {
         logger.info("assert a rule with generic condition works");
         // Creation of RULE
         Map<String, Object> configs = new HashMap<>();
-        configs.put("eventSource", "myMotionItem5");
-        configs.put("eventTopic", "openhab/*");
-        configs.put("eventTypes", "ItemStateEvent");
+        configs.put("topic", "openhab/items/myMotionItem5/*");
+        configs.put("types", "ItemStateEvent");
         Configuration triggerConfig = new Configuration(configs);
         configs = new HashMap<>();
         configs.put("operator", "matches");
@@ -981,11 +936,6 @@ public class AutomationIntegrationTest extends JavaOSGiTest {
             @Override
             public Set<String> getSubscribedEventTypes() {
                 return Set.of(ItemCommandEvent.TYPE);
-            }
-
-            @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
             }
 
             @Override

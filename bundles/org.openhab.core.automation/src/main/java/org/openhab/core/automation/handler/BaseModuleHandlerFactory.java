@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -74,7 +74,7 @@ public abstract class BaseModuleHandlerFactory implements ModuleHandlerFactory {
      *
      * @param module the {@link Module} for which a handler should be created.
      * @param ruleUID the identifier of the {@link Rule} that the given module belongs to.
-     * @return a {@link ModuleHandler} instance or {@code null} if thins module type is not supported.
+     * @return a {@link ModuleHandler} instance or {@code null} if this module type is not supported.
      */
     protected abstract @Nullable ModuleHandler internalCreate(Module module, String ruleUID);
 

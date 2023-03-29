@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -19,11 +19,13 @@ import java.util.Optional;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.core.binding.xml.internal.BindingInfoXmlResult;
+import org.openhab.core.addon.internal.xml.AddonInfoXmlResult;
 import org.openhab.core.config.core.ConfigDescription;
 import org.openhab.core.thing.xml.internal.ChannelGroupTypeXmlResult;
 import org.openhab.core.thing.xml.internal.ChannelTypeXmlResult;
 import org.openhab.core.thing.xml.internal.ThingTypeXmlResult;
+
+import com.google.gson.JsonObject;
 
 /**
  * The bundle information provided by the openHAB XML files in the <code>OH-INF</code> directory.
@@ -33,18 +35,29 @@ import org.openhab.core.thing.xml.internal.ThingTypeXmlResult;
 @NonNullByDefault
 public class BundleInfo {
 
-    private @Nullable BindingInfoXmlResult bindingInfoXml;
+    private String addonId = "";
+    private @Nullable AddonInfoXmlResult addonInfoXml;
     private List<ConfigDescription> configDescriptions = new ArrayList<>(5);
     private List<ChannelGroupTypeXmlResult> channelGroupTypesXml = new ArrayList<>(5);
     private List<ChannelTypeXmlResult> channelTypesXml = new ArrayList<>(5);
     private List<ThingTypeXmlResult> thingTypesXml = new ArrayList<>(5);
+    private List<JsonObject> moduleTypesJson = new ArrayList<>(5);
+    private List<JsonObject> ruleTemplateJson = new ArrayList<>(5);
 
-    public @Nullable BindingInfoXmlResult getBindingInfoXml() {
-        return bindingInfoXml;
+    public String getAddonId() {
+        return addonId;
     }
 
-    public void setBindingInfoXml(BindingInfoXmlResult bindingInfo) {
-        this.bindingInfoXml = bindingInfo;
+    public void setAddonId(String addonId) {
+        this.addonId = addonId;
+    }
+
+    public @Nullable AddonInfoXmlResult getAddonInfoXml() {
+        return addonInfoXml;
+    }
+
+    public void setAddonInfoXml(AddonInfoXmlResult addonInfo) {
+        this.addonInfoXml = addonInfo;
     }
 
     public List<ConfigDescription> getConfigDescriptions() {
@@ -71,17 +84,28 @@ public class BundleInfo {
         this.channelTypesXml = channelTypesXml;
     }
 
+    public List<JsonObject> getModuleTypesJson() {
+        return moduleTypesJson;
+    }
+
+    public void setModuleTypesJson(List<JsonObject> moduleTypesJson) {
+        this.moduleTypesJson = moduleTypesJson;
+    }
+
+    public List<JsonObject> getRuleTemplateJson() {
+        return ruleTemplateJson;
+    }
+
+    public void setRuleTemplateJson(List<JsonObject> ruleTemplateJson) {
+        this.ruleTemplateJson = ruleTemplateJson;
+    }
+
     public List<ThingTypeXmlResult> getThingTypesXml() {
         return thingTypesXml;
     }
 
     public void setThingTypesXml(List<ThingTypeXmlResult> thingTypesXml) {
         this.thingTypesXml = thingTypesXml;
-    }
-
-    public String getBindingId() {
-        BindingInfoXmlResult localBindingInfoXml = bindingInfoXml;
-        return localBindingInfoXml == null ? "" : localBindingInfoXml.getBindingInfo().getUID();
     }
 
     public Optional<ConfigDescription> getConfigDescription(@Nullable URI uri) {

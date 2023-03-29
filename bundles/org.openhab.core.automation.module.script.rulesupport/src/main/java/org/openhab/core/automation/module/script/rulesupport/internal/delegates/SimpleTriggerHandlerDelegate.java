@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,6 +12,7 @@
  */
 package org.openhab.core.automation.module.script.rulesupport.internal.delegates;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.core.automation.ModuleHandlerCallback;
 import org.openhab.core.automation.Trigger;
 import org.openhab.core.automation.handler.BaseTriggerModuleHandler;
@@ -22,6 +23,7 @@ import org.openhab.core.automation.handler.TriggerHandlerCallback;
  *
  * @author Simon Merschjohann - Initial contribution
  */
+@NonNullByDefault
 public class SimpleTriggerHandlerDelegate extends BaseTriggerModuleHandler {
 
     private final org.openhab.core.automation.module.script.rulesupport.shared.simple.SimpleTriggerHandler triggerHandler;

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -31,6 +31,7 @@ import org.eclipse.xtext.resource.XtextResource;
 import org.eclipse.xtext.xbase.XExpression;
 import org.eclipse.xtext.xbase.interpreter.IEvaluationContext;
 import org.eclipse.xtext.xbase.interpreter.impl.DefaultEvaluationContext;
+import org.openhab.core.automation.module.script.ScriptExtensionAccessor;
 import org.openhab.core.items.events.ItemEvent;
 import org.openhab.core.model.script.engine.Script;
 import org.openhab.core.model.script.engine.ScriptExecutionException;
@@ -38,6 +39,7 @@ import org.openhab.core.model.script.engine.ScriptParsingException;
 import org.openhab.core.model.script.jvmmodel.ScriptJvmModelInferrer;
 import org.openhab.core.model.script.runtime.DSLScriptContextProvider;
 import org.openhab.core.thing.events.ChannelTriggeredEvent;
+import org.openhab.core.thing.events.ThingStatusInfoChangedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,20 +63,22 @@ public class DSLScriptEngine implements javax.script.ScriptEngine {
     private static final Map<String, String> IMPLICIT_VARS = Map.of("command",
             ScriptJvmModelInferrer.VAR_RECEIVED_COMMAND, "state", ScriptJvmModelInferrer.VAR_NEW_STATE, "newState",
             ScriptJvmModelInferrer.VAR_NEW_STATE, "oldState", ScriptJvmModelInferrer.VAR_PREVIOUS_STATE,
-            "triggeringItem", ScriptJvmModelInferrer.VAR_TRIGGERING_ITEM);
+            "triggeringItem", ScriptJvmModelInferrer.VAR_TRIGGERING_ITEM, "input", ScriptJvmModelInferrer.VAR_INPUT);
 
     private final Logger logger = LoggerFactory.getLogger(DSLScriptEngine.class);
 
     private final org.openhab.core.model.script.engine.ScriptEngine scriptEngine;
     private final @Nullable DSLScriptContextProvider contextProvider;
     private final ScriptContext context = new SimpleScriptContext();
+    private final ScriptExtensionAccessor scriptExtensionAccessor;
 
     private @Nullable Script parsedScript;
 
     public DSLScriptEngine(org.openhab.core.model.script.engine.ScriptEngine scriptEngine,
-            @Nullable DSLScriptContextProvider contextProvider) {
+            @Nullable DSLScriptContextProvider contextProvider, ScriptExtensionAccessor scriptExtensionAccessor) {
         this.scriptEngine = scriptEngine;
         this.contextProvider = contextProvider;
+        this.scriptExtensionAccessor = scriptExtensionAccessor;
     }
 
     @Override
@@ -160,6 +164,11 @@ public class DSLScriptEngine implements javax.script.ScriptEngine {
                 }
             }
         }
+
+        Map<String, Object> cachePreset = scriptExtensionAccessor.findPreset("cache",
+                (String) context.getAttribute("oh.engine-identifier", ScriptContext.ENGINE_SCOPE));
+        evalContext.newValue(QualifiedName.create("sharedCache"), cachePreset.get("sharedCache"));
+        evalContext.newValue(QualifiedName.create("privateCache"), cachePreset.get("privateCache"));
         // now add specific implicit vars, where we have to map the right content
         Object value = context.getAttribute(OUTPUT_EVENT);
         if (value instanceof ChannelTriggeredEvent) {
@@ -172,6 +181,15 @@ public class DSLScriptEngine implements javax.script.ScriptEngine {
             ItemEvent event = (ItemEvent) value;
             evalContext.newValue(QualifiedName.create(ScriptJvmModelInferrer.VAR_TRIGGERING_ITEM_NAME),
                     event.getItemName());
+        }
+        if (value instanceof ThingStatusInfoChangedEvent) {
+            ThingStatusInfoChangedEvent event = (ThingStatusInfoChangedEvent) value;
+            evalContext.newValue(QualifiedName.create(ScriptJvmModelInferrer.VAR_TRIGGERING_THING),
+                    event.getThingUID().toString());
+            evalContext.newValue(QualifiedName.create(ScriptJvmModelInferrer.VAR_PREVIOUS_STATUS),
+                    event.getOldStatusInfo().getStatus().toString());
+            evalContext.newValue(QualifiedName.create(ScriptJvmModelInferrer.VAR_NEW_STATUS),
+                    event.getStatusInfo().getStatus().toString());
         }
 
         return evalContext;
@@ -194,7 +212,6 @@ public class DSLScriptEngine implements javax.script.ScriptEngine {
 
     @Override
     public void put(String key, Object value) {
-
     }
 
     @Override
@@ -223,7 +240,6 @@ public class DSLScriptEngine implements javax.script.ScriptEngine {
 
     @Override
     public void setContext(ScriptContext context) {
-
     }
 
     @Override
@@ -291,5 +307,4 @@ public class DSLScriptEngine implements javax.script.ScriptEngine {
             }
         };
     }
-
 }

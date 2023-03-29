@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Locale;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,19 +42,16 @@ import org.openhab.core.io.console.Console;
  * @author Christoph Weitkamp - Added parameter to adjust the volume
  * @author Wouter Born - Migrate tests from Groovy to Java
  */
+@NonNullByDefault
 public class AudioConsoleTest extends AbstractAudioServletTest {
 
-    private BundledSoundFileHandler fileHandler;
-
-    private AudioConsoleCommandExtension audioConsoleCommandExtension;
-
-    private AudioManagerImpl audioManager;
-
-    private AudioSinkFake audioSink;
+    private @NonNullByDefault({}) AudioConsoleCommandExtension audioConsoleCommandExtension;
+    private @NonNullByDefault({}) AudioManagerImpl audioManager;
+    private @NonNullByDefault({}) AudioSinkFake audioSink;
+    private @NonNullByDefault({}) String consoleOutput;
+    private @NonNullByDefault({}) BundledSoundFileHandler fileHandler;
 
     private final byte[] testByteArray = new byte[] { 0, 1, 2 };
-
-    private String consoleOutput;
     private final Console consoleMock = new Console() {
 
         @Override
@@ -71,7 +69,7 @@ public class AudioConsoleTest extends AbstractAudioServletTest {
         }
     };
 
-    private final int testTimeout = 1;
+    private final int testTimeout = 5;
 
     @BeforeEach
     public void setUp() throws IOException {
@@ -102,7 +100,7 @@ public class AudioConsoleTest extends AbstractAudioServletTest {
     public void audioConsolePlaysFile() throws AudioException, IOException {
         AudioStream audioStream = new FileAudioStream(new File(fileHandler.wavFilePath()));
 
-        String[] args = new String[] { AudioConsoleCommandExtension.SUBCMD_PLAY, fileHandler.wavFileName() };
+        String[] args = { AudioConsoleCommandExtension.SUBCMD_PLAY, fileHandler.wavFileName() };
         audioConsoleCommandExtension.execute(args, consoleMock);
 
         assertThat(audioSink.audioFormat.isCompatible(audioStream.getFormat()), is(true));
@@ -113,8 +111,7 @@ public class AudioConsoleTest extends AbstractAudioServletTest {
     public void audioConsolePlaysFileForASpecifiedSink() throws AudioException, IOException {
         AudioStream audioStream = new FileAudioStream(new File(fileHandler.wavFilePath()));
 
-        String[] args = new String[] { AudioConsoleCommandExtension.SUBCMD_PLAY, audioSink.getId(),
-                fileHandler.wavFileName() };
+        String[] args = { AudioConsoleCommandExtension.SUBCMD_PLAY, audioSink.getId(), fileHandler.wavFileName() };
         audioConsoleCommandExtension.execute(args, consoleMock);
 
         assertThat(audioSink.audioFormat.isCompatible(audioStream.getFormat()), is(true));
@@ -125,8 +122,8 @@ public class AudioConsoleTest extends AbstractAudioServletTest {
     public void audioConsolePlaysFileForASpecifiedSinkWithASpecifiedVolume() throws AudioException, IOException {
         AudioStream audioStream = new FileAudioStream(new File(fileHandler.wavFilePath()));
 
-        String[] args = new String[] { AudioConsoleCommandExtension.SUBCMD_PLAY, audioSink.getId(),
-                fileHandler.wavFileName(), "25" };
+        String[] args = { AudioConsoleCommandExtension.SUBCMD_PLAY, audioSink.getId(), fileHandler.wavFileName(),
+                "25" };
         audioConsoleCommandExtension.execute(args, consoleMock);
 
         assertThat(audioSink.audioFormat.isCompatible(audioStream.getFormat()), is(true));
@@ -135,8 +132,8 @@ public class AudioConsoleTest extends AbstractAudioServletTest {
 
     @Test
     public void audioConsolePlaysFileForASpecifiedSinkWithAnInvalidVolume() {
-        String[] args = new String[] { AudioConsoleCommandExtension.SUBCMD_PLAY, audioSink.getId(),
-                fileHandler.wavFileName(), "invalid" };
+        String[] args = { AudioConsoleCommandExtension.SUBCMD_PLAY, audioSink.getId(), fileHandler.wavFileName(),
+                "invalid" };
         audioConsoleCommandExtension.execute(args, consoleMock);
 
         waitForAssert(() -> assertThat("The given volume was invalid", consoleOutput,
@@ -150,7 +147,7 @@ public class AudioConsoleTest extends AbstractAudioServletTest {
 
         String url = serveStream(audioStream, testTimeout);
 
-        String[] args = new String[] { AudioConsoleCommandExtension.SUBCMD_STREAM, url };
+        String[] args = { AudioConsoleCommandExtension.SUBCMD_STREAM, url };
         audioConsoleCommandExtension.execute(args, consoleMock);
 
         assertThat("The streamed URL was not as expected", ((URLAudioStream) audioSink.audioStream).getURL(), is(url));
@@ -163,7 +160,7 @@ public class AudioConsoleTest extends AbstractAudioServletTest {
 
         String url = serveStream(audioStream, testTimeout);
 
-        String[] args = new String[] { AudioConsoleCommandExtension.SUBCMD_STREAM, audioSink.getId(), url };
+        String[] args = { AudioConsoleCommandExtension.SUBCMD_STREAM, audioSink.getId(), url };
         audioConsoleCommandExtension.execute(args, consoleMock);
 
         assertThat("The streamed URL was not as expected", ((URLAudioStream) audioSink.audioStream).getURL(), is(url));
@@ -171,7 +168,7 @@ public class AudioConsoleTest extends AbstractAudioServletTest {
 
     @Test
     public void audioConsoleListsSinks() {
-        String[] args = new String[] { AudioConsoleCommandExtension.SUBCMD_SINKS };
+        String[] args = { AudioConsoleCommandExtension.SUBCMD_SINKS };
         audioConsoleCommandExtension.execute(args, consoleMock);
 
         waitForAssert(() -> assertThat("The listed sink was not as expected", consoleOutput,
@@ -184,7 +181,7 @@ public class AudioConsoleTest extends AbstractAudioServletTest {
         when(audioSource.getId()).thenReturn("sourceId");
         audioManager.addAudioSource(audioSource);
 
-        String[] args = new String[] { AudioConsoleCommandExtension.SUBCMD_SOURCES };
+        String[] args = { AudioConsoleCommandExtension.SUBCMD_SOURCES };
         audioConsoleCommandExtension.execute(args, consoleMock);
 
         waitForAssert(() -> assertThat("The listed source was not as expected", consoleOutput,

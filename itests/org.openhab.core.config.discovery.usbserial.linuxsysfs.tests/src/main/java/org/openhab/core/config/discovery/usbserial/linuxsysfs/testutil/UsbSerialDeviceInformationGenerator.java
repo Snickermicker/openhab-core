@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -14,6 +14,7 @@ package org.openhab.core.config.discovery.usbserial.linuxsysfs.testutil;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.core.config.discovery.usbserial.UsbSerialDeviceInformation;
 
 /**
@@ -21,6 +22,7 @@ import org.openhab.core.config.discovery.usbserial.UsbSerialDeviceInformation;
  *
  * @author Henning Sudbrock - Initial contribution
  */
+@NonNullByDefault
 public class UsbSerialDeviceInformationGenerator {
 
     private final AtomicInteger counter = new AtomicInteger(0);

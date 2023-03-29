@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -21,6 +21,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.openhab.core.thing.ChannelUID;
@@ -34,6 +35,7 @@ import org.openhab.core.thing.internal.ThingImpl;
  *
  * @author Simon Kaufmann - Initial contribution
  */
+@NonNullByDefault
 public class ThingBuilderTest {
 
     private static final ThingTypeUID THING_TYPE_UID = new ThingTypeUID("test", "test");
@@ -43,7 +45,7 @@ public class ThingBuilderTest {
     private static final String VALUE1 = "value1";
     private static final String VALUE2 = "value2";
     private final Map<String, String> properties = Map.of(KEY1, VALUE1, KEY2, VALUE2);
-    private ThingBuilder thingBuilder;
+    private @NonNullByDefault({}) ThingBuilder thingBuilder;
 
     @BeforeEach
     public void setup() {

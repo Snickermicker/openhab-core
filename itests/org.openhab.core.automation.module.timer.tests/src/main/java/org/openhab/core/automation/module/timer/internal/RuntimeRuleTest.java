@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,7 +12,6 @@
  */
 package org.openhab.core.automation.module.timer.internal;
 
-import static org.eclipse.jdt.annotation.Checks.requireNonNull;
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -22,6 +21,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 
@@ -44,7 +44,6 @@ import org.openhab.core.automation.util.RuleBuilder;
 import org.openhab.core.common.registry.ProviderChangeListener;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.events.Event;
-import org.openhab.core.events.EventFilter;
 import org.openhab.core.events.EventSubscriber;
 import org.openhab.core.items.Item;
 import org.openhab.core.items.ItemProvider;
@@ -63,15 +62,13 @@ import org.slf4j.LoggerFactory;
  * @author Markus Rathgeb - fix module timer test
  * @author Kai Kreuzer - migrated to Java
  */
+@NonNullByDefault
 public class RuntimeRuleTest extends JavaOSGiTest {
 
     private final Logger logger = LoggerFactory.getLogger(RuntimeRuleTest.class);
     private VolatileStorageService volatileStorageService = new VolatileStorageService();
-    private RuleRegistry ruleRegistry;
-    private RuleManager ruleEngine;
-
-    public RuntimeRuleTest() {
-    }
+    private @NonNullByDefault({}) RuleRegistry ruleRegistry;
+    private @NonNullByDefault({}) RuleManager ruleEngine;
 
     @BeforeEach
     public void before() {
@@ -88,7 +85,7 @@ public class RuntimeRuleTest extends JavaOSGiTest {
         }, 3000, 100);
 
         // start rule engine
-        RuleEngineImpl ruleEngine = requireNonNull((RuleEngineImpl) getService(RuleManager.class));
+        RuleEngineImpl ruleEngine = Objects.requireNonNull((RuleEngineImpl) getService(RuleManager.class));
         ruleEngine.onReadyMarkerAdded(new ReadyMarker("", ""));
         waitForAssert(() -> assertTrue(ruleEngine.isStarted()));
     }
@@ -168,11 +165,6 @@ public class RuntimeRuleTest extends JavaOSGiTest {
             public java.util.Set<String> getSubscribedEventTypes() {
                 return Set.of(ItemCommandEvent.TYPE);
             }
-
-            @Override
-            public EventFilter getEventFilter() {
-                return null;
-            };
         };
         registerService(itemEventHandler);
 
@@ -214,7 +206,6 @@ public class RuntimeRuleTest extends JavaOSGiTest {
         });
     }
 
-    @NonNullByDefault
     class TestItemProvider implements ItemProvider {
         private final Collection<Item> items;
 

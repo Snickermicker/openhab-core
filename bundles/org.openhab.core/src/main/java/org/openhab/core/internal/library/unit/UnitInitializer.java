@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,6 +12,7 @@
  */
 package org.openhab.core.internal.library.unit;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.core.library.unit.ImperialUnits;
 import org.openhab.core.library.unit.SIUnits;
 import org.openhab.core.library.unit.Units;
@@ -21,6 +22,7 @@ import org.openhab.core.library.unit.Units;
  *
  * @author Henning Treu - Initial contribution
  */
+@NonNullByDefault
 public class UnitInitializer {
 
     static {

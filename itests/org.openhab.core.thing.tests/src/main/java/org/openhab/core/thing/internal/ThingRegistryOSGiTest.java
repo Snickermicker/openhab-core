@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -16,8 +16,13 @@ import static java.util.Map.entry;
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.Collection;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -30,7 +35,6 @@ import org.junit.jupiter.api.Test;
 import org.openhab.core.common.registry.ProviderChangeListener;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.events.Event;
-import org.openhab.core.events.EventFilter;
 import org.openhab.core.events.EventSubscriber;
 import org.openhab.core.test.java.JavaOSGiTest;
 import org.openhab.core.thing.ChannelUID;
@@ -45,10 +49,14 @@ import org.openhab.core.thing.binding.BaseThingHandler;
 import org.openhab.core.thing.binding.BaseThingHandlerFactory;
 import org.openhab.core.thing.binding.ThingHandler;
 import org.openhab.core.thing.binding.ThingHandlerFactory;
+import org.openhab.core.thing.binding.ThingTypeProvider;
 import org.openhab.core.thing.binding.builder.ThingBuilder;
 import org.openhab.core.thing.events.ThingAddedEvent;
 import org.openhab.core.thing.events.ThingRemovedEvent;
 import org.openhab.core.thing.events.ThingUpdatedEvent;
+import org.openhab.core.thing.type.ThingType;
+import org.openhab.core.thing.type.ThingTypeBuilder;
+import org.openhab.core.thing.type.ThingTypeRegistry;
 import org.openhab.core.types.Command;
 import org.osgi.framework.ServiceRegistration;
 
@@ -77,6 +85,7 @@ public class ThingRegistryOSGiTest extends JavaOSGiTest {
     public void setUp() {
         registerVolatileStorageService();
         managedThingProvider = getService(ManagedThingProvider.class);
+        registerThingTypeProvider();
         unregisterCurrentThingHandlerFactory();
     }
 
@@ -93,11 +102,6 @@ public class ThingRegistryOSGiTest extends JavaOSGiTest {
             @Override
             public Set<String> getSubscribedEventTypes() {
                 return Set.of(ThingAddedEvent.TYPE, ThingRemovedEvent.TYPE, ThingUpdatedEvent.TYPE);
-            }
-
-            @Override
-            public @Nullable EventFilter getEventFilter() {
-                return null;
             }
 
             @Override
@@ -251,5 +255,17 @@ public class ThingRegistryOSGiTest extends JavaOSGiTest {
             unregisterService(thingHandlerFactoryServiceReg);
             thingHandlerFactoryServiceReg = null;
         }
+    }
+
+    private void registerThingTypeProvider() {
+        ThingType thingType = ThingTypeBuilder.instance(THING_TYPE_UID, "label").build();
+
+        ThingTypeProvider thingTypeProvider = mock(ThingTypeProvider.class);
+        when(thingTypeProvider.getThingType(any(ThingTypeUID.class), nullable(Locale.class))).thenReturn(thingType);
+        registerService(thingTypeProvider);
+
+        ThingTypeRegistry thingTypeRegistry = mock(ThingTypeRegistry.class);
+        when(thingTypeRegistry.getThingType(any(ThingTypeUID.class))).thenReturn(thingType);
+        registerService(thingTypeRegistry);
     }
 }

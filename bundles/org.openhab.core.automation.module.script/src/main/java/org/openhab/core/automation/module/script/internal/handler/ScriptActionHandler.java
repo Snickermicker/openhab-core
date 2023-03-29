@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -14,6 +14,7 @@ package org.openhab.core.automation.module.script.internal.handler;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import javax.script.ScriptException;
 
@@ -37,19 +38,27 @@ public class ScriptActionHandler extends AbstractScriptModuleHandler<Action> imp
     public static final String TYPE_ID = "script.ScriptAction";
 
     private final Logger logger = LoggerFactory.getLogger(ScriptActionHandler.class);
+    private final Consumer<ScriptActionHandler> onRemoval;
 
     /**
      * constructs a new ScriptActionHandler
      *
-     * @param module
-     * @param ruleUid the UID of the rule this handler is used for
+     * @param module the module
+     * @param ruleUID the UID of the rule this handler is used for
+     * @param onRemoval called on removal of this script
      */
-    public ScriptActionHandler(Action module, String ruleUID, ScriptEngineManager scriptEngineManager) {
+    public ScriptActionHandler(Action module, String ruleUID, ScriptEngineManager scriptEngineManager,
+            Consumer<ScriptActionHandler> onRemoval) {
         super(module, ruleUID, scriptEngineManager);
+
+        this.onRemoval = onRemoval;
     }
 
     @Override
     public void dispose() {
+        onRemoval.accept(this);
+
+        super.dispose();
     }
 
     @Override
@@ -65,6 +74,7 @@ public class ScriptActionHandler extends AbstractScriptModuleHandler<Action> imp
                 logger.error("Script execution of rule with UID '{}' failed: {}", ruleUID, e.getMessage(),
                         logger.isDebugEnabled() ? e : null);
             }
+            resetExecutionContext(scriptEngine, context);
         });
 
         return resultMap;

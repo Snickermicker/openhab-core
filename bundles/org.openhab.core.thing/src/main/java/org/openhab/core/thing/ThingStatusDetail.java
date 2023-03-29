@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,14 +12,18 @@
  */
 package org.openhab.core.thing;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+
 /**
  * {@link ThingStatusDetail} defines possible status details of a {@link ThingStatusInfo}.
  *
  * @author Stefan Bußweiler - Initial contribution, added new status details
  * @author Chris Jackson - Added GONE status
  */
+@NonNullByDefault
 public enum ThingStatusDetail {
     NONE,
+    NOT_YET_READY,
     HANDLER_MISSING_ERROR,
     HANDLER_REGISTERING_ERROR,
     HANDLER_INITIALIZING_ERROR,

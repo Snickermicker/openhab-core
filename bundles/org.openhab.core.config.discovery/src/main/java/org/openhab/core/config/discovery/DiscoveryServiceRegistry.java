@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -60,7 +60,7 @@ public interface DiscoveryServiceRegistry {
      * Forces the associated {@link DiscoveryService}s to start a discovery for
      * all thing types of the given binding id.
      * <p>
-     * Returns {@code true}, if a at least one {@link DiscoveryService} could be found and forced to start a discovery,
+     * Returns {@code true}, if at least one {@link DiscoveryService} could be found and forced to start a discovery,
      * otherwise {@code false}.
      *
      * @param bindingId the binding id pointing to one or more discovery services to

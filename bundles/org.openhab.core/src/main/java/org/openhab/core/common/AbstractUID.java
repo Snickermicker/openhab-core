@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -51,7 +51,7 @@ public abstract class AbstractUID {
     }
 
     /**
-     * Creates a AbstractUID for a list of segments.
+     * Creates an AbstractUID for a list of segments.
      *
      * @param segments the id segments
      */
@@ -69,11 +69,14 @@ public abstract class AbstractUID {
         int numberOfSegments = segments.size();
         if (numberOfSegments < minNumberOfSegments) {
             throw new IllegalArgumentException(
-                    String.format("UID must have at least %d segments.", minNumberOfSegments));
+                    String.format("UID must have at least %d segments: %s", minNumberOfSegments, segments));
         }
         for (int i = 0; i < numberOfSegments; i++) {
             String segment = segments.get(i);
             validateSegment(segment, i, numberOfSegments);
+        }
+        if (segments.get(numberOfSegments - 1).isBlank()) {
+            throw new IllegalArgumentException("Last segment must not be blank: " + segments);
         }
         this.segments = List.copyOf(segments);
     }
@@ -81,7 +84,7 @@ public abstract class AbstractUID {
     /**
      * Specifies how many segments the UID has to have at least.
      *
-     * @return
+     * @return the number of segments
      */
     protected abstract int getMinimalNumberOfSegments();
 
@@ -137,9 +140,6 @@ public abstract class AbstractUID {
             return false;
         }
         AbstractUID other = (AbstractUID) obj;
-        if (!segments.equals(other.segments)) {
-            return false;
-        }
-        return true;
+        return segments.equals(other.segments);
     }
 }

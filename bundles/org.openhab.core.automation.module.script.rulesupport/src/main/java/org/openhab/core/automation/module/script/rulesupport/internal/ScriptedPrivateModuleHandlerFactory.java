@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -16,6 +16,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.automation.Module;
 import org.openhab.core.automation.handler.ModuleHandler;
 import org.openhab.core.automation.handler.ModuleHandlerFactory;
@@ -33,6 +35,7 @@ import org.slf4j.LoggerFactory;
  *
  * @author Simon Merschjohann - Initial contribution
  */
+@NonNullByDefault
 @Component(immediate = true, service = { ScriptedPrivateModuleHandlerFactory.class, ModuleHandlerFactory.class })
 public class ScriptedPrivateModuleHandlerFactory extends AbstractScriptedModuleHandlerFactory {
     private static final String PRIV_ID = "privId";
@@ -50,7 +53,7 @@ public class ScriptedPrivateModuleHandlerFactory extends AbstractScriptedModuleH
     }
 
     @Override
-    protected ModuleHandler internalCreate(Module module, String ruleUID) {
+    protected @Nullable ModuleHandler internalCreate(Module module, String ruleUID) {
         ModuleHandler moduleHandler = null;
 
         ScriptedHandler scriptedHandler = null;

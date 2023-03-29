@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -13,7 +13,7 @@
 package org.openhab.core.library.types;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
+import java.math.MathContext;
 import java.util.Set;
 
 import javax.measure.Quantity;
@@ -92,7 +92,7 @@ public interface QuantityTypeArithmeticGroupFunction extends GroupFunction {
                             sum = itemState; // initialise the sum from the first item
                             count++;
                         } else {
-                            itemState = itemState.toUnit(sum.getUnit());
+                            itemState = itemState.toInvertibleUnit(sum.getUnit());
                             if (itemState != null) {
                                 sum = sum.add(itemState);
                                 count++;
@@ -103,7 +103,7 @@ public interface QuantityTypeArithmeticGroupFunction extends GroupFunction {
             }
 
             if (sum != null && count > 0) {
-                BigDecimal result = sum.toBigDecimal().divide(BigDecimal.valueOf(count), RoundingMode.HALF_UP);
+                BigDecimal result = sum.toBigDecimal().divide(BigDecimal.valueOf(count), MathContext.DECIMAL128);
                 return new QuantityType(result, sum.getUnit());
             }
 

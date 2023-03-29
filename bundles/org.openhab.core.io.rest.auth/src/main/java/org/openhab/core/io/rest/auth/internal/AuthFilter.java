@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -13,19 +13,28 @@
 package org.openhab.core.io.rest.auth.internal;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.annotation.Priority;
+import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.Priorities;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerRequestFilter;
 import javax.ws.rs.container.PreMatching;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.SecurityContext;
@@ -40,6 +49,7 @@ import org.openhab.core.auth.UserApiTokenCredentials;
 import org.openhab.core.auth.UserRegistry;
 import org.openhab.core.auth.UsernamePasswordCredentials;
 import org.openhab.core.common.registry.RegistryChangeListener;
+import org.openhab.core.config.core.ConfigParser;
 import org.openhab.core.config.core.ConfigurableService;
 import org.openhab.core.io.rest.JSONResponse;
 import org.openhab.core.io.rest.RESTConstants;
@@ -64,6 +74,7 @@ import org.slf4j.LoggerFactory;
  * @author Yannick Schaus - Add support for API tokens
  * @author Sebastian Gerber - Add basic auth caching
  * @author Kai Kreuzer - Add null annotations, constructor initialization
+ * @author Miguel Álvarez - Add trusted networks for implicit user role
  */
 @PreMatching
 @Component(configurationPid = "org.openhab.restauth", property = Constants.SERVICE_PID + "=org.openhab.restauth")
@@ -76,16 +87,17 @@ import org.slf4j.LoggerFactory;
 public class AuthFilter implements ContainerRequestFilter {
     private final Logger logger = LoggerFactory.getLogger(AuthFilter.class);
 
-    private static final String ALT_AUTH_HEADER = "X-OPENHAB-TOKEN";
-    private static final String API_TOKEN_PREFIX = "oh.";
-
+    static final String ALT_AUTH_HEADER = "X-OPENHAB-TOKEN";
+    static final String API_TOKEN_PREFIX = "oh.";
     protected static final String CONFIG_URI = "system:restauth";
-    private static final String CONFIG_ALLOW_BASIC_AUTH = "allowBasicAuth";
-    private static final String CONFIG_IMPLICIT_USER_ROLE = "implicitUserRole";
-    private static final String CONFIG_CACHE_EXPIRATION = "cacheExpiration";
+    static final String CONFIG_ALLOW_BASIC_AUTH = "allowBasicAuth";
+    static final String CONFIG_IMPLICIT_USER_ROLE = "implicitUserRole";
+    static final String CONFIG_TRUSTED_NETWORKS = "trustedNetworks";
+    static final String CONFIG_CACHE_EXPIRATION = "cacheExpiration";
 
     private boolean allowBasicAuth = false;
     private boolean implicitUserRole = true;
+    private List<CIDR> trustedNetworks = List.of();
     private Long cacheExpiration = 6L;
 
     private ExpiringUserSecurityContextCache authCache = new ExpiringUserSecurityContextCache(
@@ -96,7 +108,10 @@ public class AuthFilter implements ContainerRequestFilter {
     private final JwtHelper jwtHelper;
     private final UserRegistry userRegistry;
 
-    private RegistryChangeListener<User> userRegistryListener = new RegistryChangeListener<User>() {
+    @Context
+    private @NonNullByDefault({}) HttpServletRequest servletRequest;
+
+    private RegistryChangeListener<User> userRegistryListener = new RegistryChangeListener<>() {
 
         @Override
         public void added(User element) {
@@ -130,17 +145,16 @@ public class AuthFilter implements ContainerRequestFilter {
     @Modified
     protected void modified(@Nullable Map<String, Object> properties) {
         if (properties != null) {
-            Object value = properties.get(CONFIG_ALLOW_BASIC_AUTH);
-            allowBasicAuth = value != null && "true".equals(value.toString());
-            value = properties.get(CONFIG_IMPLICIT_USER_ROLE);
-            implicitUserRole = value == null || !"false".equals(value.toString());
-            value = properties.get(CONFIG_CACHE_EXPIRATION);
-            if (value != null) {
-                try {
-                    cacheExpiration = Long.valueOf(value.toString());
-                } catch (NumberFormatException e) {
-                    logger.warn("Ignoring invalid configuration value '{}' for cacheExpiration parameter.", value);
-                }
+            allowBasicAuth = ConfigParser.valueAsOrElse(properties.get(CONFIG_ALLOW_BASIC_AUTH), Boolean.class, false);
+            implicitUserRole = ConfigParser.valueAsOrElse(properties.get(CONFIG_IMPLICIT_USER_ROLE), Boolean.class,
+                    true);
+            trustedNetworks = parseTrustedNetworks(
+                    ConfigParser.valueAsOrElse(properties.get(CONFIG_TRUSTED_NETWORKS), String.class, ""));
+            try {
+                cacheExpiration = ConfigParser.valueAsOrElse(properties.get(CONFIG_CACHE_EXPIRATION), Long.class, 6L);
+            } catch (NumberFormatException e) {
+                logger.warn("Ignoring invalid configuration value '{}' for cacheExpiration parameter.",
+                        properties.get(CONFIG_CACHE_EXPIRATION));
             }
             authCache.clear();
         }
@@ -253,13 +267,78 @@ public class AuthFilter implements ContainerRequestFilter {
                             }
                         }
                     }
-                } else if (implicitUserRole) {
+                } else if (isImplicitUserRole(requestContext)) {
                     requestContext.setSecurityContext(new AnonymousUserSecurityContext());
                 }
             } catch (AuthenticationException e) {
-                logger.warn("Unauthorized API request: {}", e.getMessage());
+                logger.warn("Unauthorized API request from {}: {}", getClientIp(requestContext), e.getMessage());
                 requestContext.abortWith(JSONResponse.createErrorResponse(Status.UNAUTHORIZED, "Invalid credentials"));
             }
+        }
+    }
+
+    private boolean isImplicitUserRole(ContainerRequestContext requestContext) {
+        if (implicitUserRole) {
+            return true;
+        }
+        try {
+            byte[] clientAddress = InetAddress.getByName(getClientIp(requestContext)).getAddress();
+            return trustedNetworks.stream().anyMatch(networkCIDR -> networkCIDR.isInRange(clientAddress));
+        } catch (IOException e) {
+            logger.debug("Error validating trusted networks: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    private List<CIDR> parseTrustedNetworks(String value) {
+        var cidrList = new ArrayList<CIDR>();
+        for (var cidrString : value.split(",")) {
+            try {
+                if (!cidrString.isBlank()) {
+                    cidrList.add(new CIDR(cidrString.trim()));
+                }
+            } catch (UnknownHostException e) {
+                logger.warn("Error parsing trusted network cidr: {}", cidrString);
+            }
+        }
+        return cidrList;
+    }
+
+    private String getClientIp(ContainerRequestContext requestContext) throws UnknownHostException {
+        String ipForwarded = Objects.requireNonNullElse(requestContext.getHeaderString("x-forwarded-for"), "");
+        String clientIp = ipForwarded.split(",")[0];
+        return clientIp.isBlank() ? servletRequest.getRemoteAddr() : clientIp;
+    }
+
+    private static class CIDR {
+        private static final Pattern CIDR_PATTERN = Pattern.compile("(?<networkAddress>.*?)/(?<prefixLength>\\d+)");
+        private final byte[] networkBytes;
+        private final int prefix;
+
+        public CIDR(String cidr) throws UnknownHostException {
+            Matcher m = CIDR_PATTERN.matcher(cidr);
+            if (!m.matches()) {
+                throw new UnknownHostException();
+            }
+            this.prefix = Integer.parseInt(m.group("prefixLength"));
+            this.networkBytes = InetAddress.getByName(m.group("networkAddress")).getAddress();
+        }
+
+        public boolean isInRange(byte[] address) {
+            if (networkBytes.length != address.length) {
+                return false;
+            }
+            int p = this.prefix;
+            int i = 0;
+            while (p > 8) {
+                if (networkBytes[i] != address[i]) {
+                    return false;
+                }
+                ++i;
+                p -= 8;
+            }
+            final int m = (65280 >> p) & 255;
+            return (networkBytes[i] & m) == (address[i] & m);
         }
     }
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -14,7 +14,6 @@ package org.openhab.core.addon.marketplace.internal.community;
 
 import static org.openhab.core.addon.Addon.CODE_MATURITY_LEVELS;
 
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.URI;
@@ -24,34 +23,35 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
+import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.addon.Addon;
-import org.openhab.core.addon.AddonEventFactory;
 import org.openhab.core.addon.AddonService;
 import org.openhab.core.addon.AddonType;
+import org.openhab.core.addon.marketplace.AbstractRemoteAddonService;
+import org.openhab.core.addon.marketplace.BundleVersion;
 import org.openhab.core.addon.marketplace.MarketplaceAddonHandler;
-import org.openhab.core.addon.marketplace.MarketplaceHandlerException;
 import org.openhab.core.addon.marketplace.internal.community.model.DiscourseCategoryResponseDTO;
 import org.openhab.core.addon.marketplace.internal.community.model.DiscourseCategoryResponseDTO.DiscoursePosterInfo;
 import org.openhab.core.addon.marketplace.internal.community.model.DiscourseCategoryResponseDTO.DiscourseTopicItem;
 import org.openhab.core.addon.marketplace.internal.community.model.DiscourseCategoryResponseDTO.DiscourseUser;
 import org.openhab.core.addon.marketplace.internal.community.model.DiscourseTopicResponseDTO;
 import org.openhab.core.addon.marketplace.internal.community.model.DiscourseTopicResponseDTO.DiscoursePostLink;
+import org.openhab.core.config.core.ConfigParser;
 import org.openhab.core.config.core.ConfigurableService;
-import org.openhab.core.events.Event;
 import org.openhab.core.events.EventPublisher;
+import org.openhab.core.storage.StorageService;
 import org.osgi.framework.Constants;
-import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -62,19 +62,17 @@ import org.osgi.service.component.annotations.ReferencePolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-
 /**
- * This class is a {@link AddonService} retrieving posts on community.openhab.org (Discourse).
+ * This class is an {@link org.openhab.core.addon.AddonService} retrieving posts on community.openhab.org (Discourse).
  *
  * @author Yannick Schaus - Initial contribution
  */
-@Component(immediate = true, configurationPid = "org.openhab.marketplace", //
-        property = Constants.SERVICE_PID + "=org.openhab.marketplace")
-@ConfigurableService(category = "system", label = "Community Marketplace", description_uri = CommunityMarketplaceAddonService.CONFIG_URI)
+@Component(immediate = true, configurationPid = CommunityMarketplaceAddonService.SERVICE_PID, //
+        property = Constants.SERVICE_PID + "="
+                + CommunityMarketplaceAddonService.SERVICE_PID, service = AddonService.class)
+@ConfigurableService(category = "system", label = CommunityMarketplaceAddonService.SERVICE_NAME, description_uri = CommunityMarketplaceAddonService.CONFIG_URI)
 @NonNullByDefault
-public class CommunityMarketplaceAddonService implements AddonService {
+public class CommunityMarketplaceAddonService extends AbstractRemoteAddonService {
     public static final String JAR_CONTENT_TYPE = "application/vnd.openhab.bundle";
     public static final String KAR_CONTENT_TYPE = "application/vnd.openhab.feature;type=karfile";
     public static final String RULETEMPLATES_CONTENT_TYPE = "application/vnd.openhab.ruletemplate";
@@ -82,15 +80,20 @@ public class CommunityMarketplaceAddonService implements AddonService {
     public static final String BLOCKLIBRARIES_CONTENT_TYPE = "application/vnd.openhab.uicomponent;type=blocks";
 
     // constants for the configuration properties
+    static final String SERVICE_NAME = "Community Marketplace";
+    static final String SERVICE_PID = "org.openhab.marketplace";
     static final String CONFIG_URI = "system:marketplace";
     static final String CONFIG_API_KEY = "apiKey";
     static final String CONFIG_SHOW_UNPUBLISHED_ENTRIES_KEY = "showUnpublished";
+    static final String CONFIG_ENABLED_KEY = "enable";
 
     private static final String COMMUNITY_BASE_URL = "https://community.openhab.org";
     private static final String COMMUNITY_MARKETPLACE_URL = COMMUNITY_BASE_URL + "/c/marketplace/69/l/latest";
     private static final String COMMUNITY_TOPIC_URL = COMMUNITY_BASE_URL + "/t/";
+    private static final Pattern BUNDLE_NAME_PATTERN = Pattern.compile(".*/(.*)-\\d+\\.\\d+\\.\\d+.*");
 
-    private static final String ADDON_ID_PREFIX = "marketplace:";
+    private static final String SERVICE_ID = "marketplace";
+    private static final String ADDON_ID_PREFIX = SERVICE_ID + ":";
 
     private static final String JSON_CODE_MARKUP_START = "<pre><code class=\"lang-json\">";
     private static final String YAML_CODE_MARKUP_START = "<pre><code class=\"lang-yaml\">";
@@ -103,76 +106,60 @@ public class CommunityMarketplaceAddonService implements AddonService {
 
     private static final String PUBLISHED_TAG = "published";
 
-    private static final Map<String, AddonType> TAG_ADDON_TYPE_MAP = Map.of( //
-            "automation", new AddonType("automation", "Automation"), //
-            "binding", new AddonType("binding", "Bindings"), //
-            "misc", new AddonType("misc", "Misc"), //
-            "persistence", new AddonType("persistence", "Persistence"), //
-            "transformation", new AddonType("transformation", "Transformations"), //
-            "ui", new AddonType("ui", "User Interfaces"), //
-            "voice", new AddonType("voice", "Voice"));
-
     private final Logger logger = LoggerFactory.getLogger(CommunityMarketplaceAddonService.class);
-    private final Gson gson = new GsonBuilder().setDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").create();
-    private final Set<MarketplaceAddonHandler> addonHandlers = new HashSet<>();
-
-    private final EventPublisher eventPublisher;
-    private final ConfigurationAdmin configurationAdmin;
 
     private @Nullable String apiKey = null;
     private boolean showUnpublished = false;
+    private boolean enabled = true;
 
     @Activate
     public CommunityMarketplaceAddonService(final @Reference EventPublisher eventPublisher,
-            @Reference ConfigurationAdmin configurationAdmin) {
-        this.eventPublisher = eventPublisher;
-        this.configurationAdmin = configurationAdmin;
-    }
-
-    @Activate
-    protected void activate(Map<String, Object> config) {
+            @Reference ConfigurationAdmin configurationAdmin, @Reference StorageService storageService,
+            Map<String, Object> config) {
+        super(eventPublisher, configurationAdmin, storageService, SERVICE_PID);
         modified(config);
     }
 
     @Modified
-    void modified(@Nullable Map<String, Object> config) {
+    public void modified(@Nullable Map<String, Object> config) {
         if (config != null) {
             this.apiKey = (String) config.get(CONFIG_API_KEY);
-            Object showUnpublishedConfigValue = config.get(CONFIG_SHOW_UNPUBLISHED_ENTRIES_KEY);
-            this.showUnpublished = showUnpublishedConfigValue != null
-                    && "true".equals(showUnpublishedConfigValue.toString());
+            this.showUnpublished = ConfigParser.valueAsOrElse(config.get(CONFIG_SHOW_UNPUBLISHED_ENTRIES_KEY),
+                    Boolean.class, false);
+            this.enabled = ConfigParser.valueAsOrElse(config.get(CONFIG_ENABLED_KEY), Boolean.class, true);
+            cachedRemoteAddons.invalidateValue();
+            refreshSource();
         }
     }
 
+    @Override
     @Reference(cardinality = ReferenceCardinality.AT_LEAST_ONE, policy = ReferencePolicy.DYNAMIC)
     protected void addAddonHandler(MarketplaceAddonHandler handler) {
         this.addonHandlers.add(handler);
     }
 
+    @Override
     protected void removeAddonHandler(MarketplaceAddonHandler handler) {
         this.addonHandlers.remove(handler);
     }
 
     @Override
     public String getId() {
-        return "marketplace";
+        return SERVICE_ID;
     }
 
     @Override
     public String getName() {
-        return "Community Marketplace";
+        return SERVICE_NAME;
     }
 
     @Override
-    public void refreshSource() {
-    }
-
-    @Override
-    public List<Addon> getAddons(@Nullable Locale locale) {
-        if (!remoteEnabled()) {
+    protected List<Addon> getRemoteAddons() {
+        if (!enabled) {
             return List.of();
         }
 
+        List<Addon> addons = new ArrayList<>();
         try {
             List<DiscourseCategoryResponseDTO> pages = new ArrayList<>();
 
@@ -187,11 +174,11 @@ public class CommunityMarketplaceAddonService implements AddonService {
 
                 try (Reader reader = new InputStreamReader(connection.getInputStream())) {
                     DiscourseCategoryResponseDTO parsed = gson.fromJson(reader, DiscourseCategoryResponseDTO.class);
-                    if (parsed.topic_list.topics.length != 0) {
+                    if (parsed.topicList.topics.length != 0) {
                         pages.add(parsed);
                     }
 
-                    if (parsed.topic_list.more_topics_url != null) {
+                    if (parsed.topicList.moreTopicsUrl != null) {
                         // Discourse URL for next page is wrong
                         url = new URL(COMMUNITY_MARKETPLACE_URL + "?page=" + pageNb++);
                     } else {
@@ -201,24 +188,31 @@ public class CommunityMarketplaceAddonService implements AddonService {
             }
 
             List<DiscourseUser> users = pages.stream().flatMap(p -> Stream.of(p.users)).collect(Collectors.toList());
-            return pages.stream().flatMap(p -> Stream.of(p.topic_list.topics))
+            pages.stream().flatMap(p -> Stream.of(p.topicList.topics))
                     .filter(t -> showUnpublished || Arrays.asList(t.tags).contains(PUBLISHED_TAG))
-                    .map(t -> convertTopicItemToAddon(t, users)).collect(Collectors.toList());
+                    .map(t -> Optional.ofNullable(convertTopicItemToAddon(t, users)))
+                    .forEach(a -> a.ifPresent(addons::add));
         } catch (Exception e) {
-            logger.error("Unable to retrieve marketplace add-ons", e);
-            return List.of();
+            logger.warn("Unable to retrieve marketplace add-ons: {}", e.getMessage());
         }
+        return addons;
     }
 
     @Override
-    public @Nullable Addon getAddon(String id, @Nullable Locale locale) {
+    public @Nullable Addon getAddon(String uid, @Nullable Locale locale) {
+        // check if it is an installed add-on (cachedAddons also contains possibly incomplete results from the remote
+        // side, we need to retrieve them from Discourse)
+        if (installedAddons.contains(uid)) {
+            return cachedAddons.stream().filter(e -> uid.equals(e.getUid())).findAny().orElse(null);
+        }
+
         if (!remoteEnabled()) {
             return null;
         }
 
-        URL url;
+        // retrieve from remote
         try {
-            url = new URL(String.format("%s%s", COMMUNITY_TOPIC_URL, id.replace(ADDON_ID_PREFIX, "")));
+            URL url = new URL(String.format("%s%s", COMMUNITY_TOPIC_URL, uid.replace(ADDON_ID_PREFIX, "")));
             URLConnection connection = url.openConnection();
             connection.addRequestProperty("Accept", "application/json");
             if (this.apiKey != null) {
@@ -235,57 +229,6 @@ public class CommunityMarketplaceAddonService implements AddonService {
     }
 
     @Override
-    public List<AddonType> getTypes(@Nullable Locale locale) {
-        return new ArrayList<>(TAG_ADDON_TYPE_MAP.values());
-    }
-
-    @Override
-    public void install(String id) {
-        Addon addon = getAddon(id, null);
-        if (addon != null) {
-            for (MarketplaceAddonHandler handler : addonHandlers) {
-                if (handler.supports(addon.getType(), addon.getContentType())) {
-                    if (!handler.isInstalled(addon.getId())) {
-                        try {
-                            handler.install(addon);
-                            postInstalledEvent(id);
-                        } catch (MarketplaceHandlerException e) {
-                            postFailureEvent(id, e.getMessage());
-                        }
-                    } else {
-                        postFailureEvent(id, "Add-on is already installed.");
-                    }
-                    return;
-                }
-            }
-        }
-        postFailureEvent(id, "Add-on not known.");
-    }
-
-    @Override
-    public void uninstall(String id) {
-        Addon addon = getAddon(id, null);
-        if (addon != null) {
-            for (MarketplaceAddonHandler handler : addonHandlers) {
-                if (handler.supports(addon.getType(), addon.getContentType())) {
-                    if (handler.isInstalled(addon.getId())) {
-                        try {
-                            handler.uninstall(addon);
-                            postUninstalledEvent(id);
-                        } catch (MarketplaceHandlerException e) {
-                            postFailureEvent(id, e.getMessage());
-                        }
-                    } else {
-                        postFailureEvent(id, "Add-on is not installed.");
-                    }
-                    return;
-                }
-            }
-        }
-        postFailureEvent(id, "Add-on not known.");
-    }
-
-    @Override
     public @Nullable String getAddonId(URI addonURI) {
         if (addonURI.toString().startsWith(COMMUNITY_TOPIC_URL)) {
             return addonURI.toString().substring(0, addonURI.toString().indexOf("/", COMMUNITY_BASE_URL.length()));
@@ -296,14 +239,15 @@ public class CommunityMarketplaceAddonService implements AddonService {
     private @Nullable AddonType getAddonType(@Nullable Integer category, List<String> tags) {
         // check if we can determine the addon type from the category
         if (RULETEMPLATES_CATEGORY.equals(category)) {
-            return TAG_ADDON_TYPE_MAP.get("automation");
+            return AddonType.AUTOMATION;
         } else if (UIWIDGETS_CATEGORY.equals(category)) {
-            return TAG_ADDON_TYPE_MAP.get("ui");
+            return AddonType.UI;
         } else if (BLOCKLIBRARIES_CATEGORY.equals(category)) {
-            return TAG_ADDON_TYPE_MAP.get("automation");
+            return AddonType.AUTOMATION;
         } else if (BUNDLES_CATEGORY.equals(category)) {
             // try to get it from tags if we have tags
-            return tags.stream().map(TAG_ADDON_TYPE_MAP::get).filter(Objects::nonNull).findFirst().orElse(null);
+            return AddonType.DEFAULT_TYPES.stream().filter(type -> tags.contains(type.getId())).findFirst()
+                    .orElse(null);
         }
 
         // or return null
@@ -332,47 +276,78 @@ public class CommunityMarketplaceAddonService implements AddonService {
     }
 
     /**
-     * Transforms a {@link DiscourseTopicItem} to a {@link Addon}
+     * Transforms a {@link DiscourseTopicItem} to an {@link Addon}
      *
      * @param topic the topic
      * @return the list item
      */
-    private Addon convertTopicItemToAddon(DiscourseTopicItem topic, List<DiscourseUser> users) {
-        List<String> tags = Arrays.asList(Objects.requireNonNullElse(topic.tags, new String[0]));
+    private @Nullable Addon convertTopicItemToAddon(DiscourseTopicItem topic, List<DiscourseUser> users) {
+        try {
+            List<String> tags = Arrays.asList(Objects.requireNonNullElse(topic.tags, new String[0]));
 
-        String id = ADDON_ID_PREFIX + topic.id.toString();
-        AddonType addonType = getAddonType(topic.category_id, tags);
-        String type = (addonType != null) ? addonType.getId() : "";
-        String contentType = getContentType(topic.category_id, tags);
-
-        String title = topic.title;
-        String link = COMMUNITY_TOPIC_URL + topic.id.toString();
-        int likeCount = topic.like_count;
-        int views = topic.views;
-        int postsCount = topic.posts_count;
-        Date createdDate = topic.created_at;
-        String author = "";
-        for (DiscoursePosterInfo posterInfo : topic.posters) {
-            if (posterInfo.description.contains("Original Poster")) {
-                author = users.stream().filter(u -> u.id.equals(posterInfo.user_id)).findFirst().get().name;
+            String uid = ADDON_ID_PREFIX + topic.id.toString();
+            AddonType addonType = getAddonType(topic.categoryId, tags);
+            if (addonType == null) {
+                logger.debug("Ignoring topic '{}' because no add-on type could be found", topic.id);
+                return null;
             }
+            String type = addonType.getId();
+            String id = topic.id.toString(); // this will be replaced after installation by the correct id if available
+            String contentType = getContentType(topic.categoryId, tags);
+
+            String title = topic.title;
+            boolean compatible = true;
+
+            int compatibilityStart = topic.title.lastIndexOf("["); // version range always starts with [
+            if (topic.title.lastIndexOf(" ") < compatibilityStart) { // check includes [ not present
+                String potentialRange = topic.title.substring(compatibilityStart);
+                Matcher matcher = BundleVersion.RANGE_PATTERN.matcher(potentialRange);
+                if (matcher.matches()) {
+                    try {
+                        compatible = coreVersion.inRange(potentialRange);
+                        title = topic.title.substring(0, compatibilityStart).trim();
+                        logger.debug("{} is {}compatible with core version {}", topic.title, compatible ? "" : "NOT ",
+                                coreVersion);
+                    } catch (IllegalArgumentException e) {
+                        logger.debug("Failed to determine compatibility for addon {}: {}", topic.title, e.getMessage());
+                        compatible = true;
+                    }
+                } else {
+                    logger.debug("Range pattern does not match '{}'", potentialRange);
+                }
+            }
+
+            String link = COMMUNITY_TOPIC_URL + topic.id.toString();
+            int likeCount = topic.likeCount;
+            int views = topic.views;
+            int postsCount = topic.postsCount;
+            Date createdDate = topic.createdAt;
+            String author = "";
+            for (DiscoursePosterInfo posterInfo : topic.posters) {
+                if (posterInfo.description.contains("Original Poster")) {
+                    author = users.stream().filter(u -> u.id.equals(posterInfo.userId)).findFirst().get().name;
+                }
+            }
+
+            String maturity = tags.stream().filter(CODE_MATURITY_LEVELS::contains).findAny().orElse(null);
+
+            Map<String, Object> properties = Map.of("created_at", createdDate, //
+                    "like_count", likeCount, //
+                    "views", views, //
+                    "posts_count", postsCount, //
+                    "tags", tags.toArray(String[]::new));
+
+            // try to use a handler to determine if the add-on is installed
+            boolean installed = addonHandlers.stream()
+                    .anyMatch(handler -> handler.supports(type, contentType) && handler.isInstalled(uid));
+
+            return Addon.create(uid).withType(type).withId(id).withContentType(contentType)
+                    .withImageLink(topic.imageUrl).withAuthor(author).withProperties(properties).withLabel(title)
+                    .withInstalled(installed).withMaturity(maturity).withCompatible(compatible).withLink(link).build();
+        } catch (RuntimeException e) {
+            logger.debug("Ignoring marketplace add-on '{}' due: {}", topic.title, e.getMessage());
+            return null;
         }
-
-        String maturity = tags.stream().filter(CODE_MATURITY_LEVELS::contains).findAny().orElse(null);
-
-        Map<String, Object> properties = Map.of("created_at", createdDate, //
-                "like_count", likeCount, //
-                "views", views, //
-                "posts_count", postsCount, //
-                "tags", tags.toArray(String[]::new));
-
-        // try to use an handler to determine if the add-on is installed
-        boolean installed = addonHandlers.stream()
-                .anyMatch(handler -> handler.supports(type, contentType) && handler.isInstalled(id));
-
-        return Addon.create(id).withType(type).withContentType(contentType).withImageLink(topic.image_url)
-                .withAuthor(author).withProperties(properties).withLabel(title).withInstalled(installed)
-                .withMaturity(maturity).withLink(link).build();
     }
 
     /**
@@ -387,25 +362,25 @@ public class CommunityMarketplaceAddonService implements AddonService {
     }
 
     /**
-     * Transforms a {@link DiscourseTopicResponseDTO} to a {@link Addon}
+     * Transforms a {@link DiscourseTopicResponseDTO} to an {@link Addon}
      *
      * @param topic the topic
      * @return the list item
      */
     private Addon convertTopicToAddon(DiscourseTopicResponseDTO topic) {
-        String id = ADDON_ID_PREFIX + topic.id.toString();
+        String uid = ADDON_ID_PREFIX + topic.id.toString();
         List<String> tags = Arrays.asList(Objects.requireNonNullElse(topic.tags, new String[0]));
 
-        AddonType addonType = getAddonType(topic.category_id, tags);
+        AddonType addonType = getAddonType(topic.categoryId, tags);
         String type = (addonType != null) ? addonType.getId() : "";
-        String contentType = getContentType(topic.category_id, tags);
+        String contentType = getContentType(topic.categoryId, tags);
 
-        int likeCount = topic.like_count;
+        int likeCount = topic.likeCount;
         int views = topic.views;
-        int postsCount = topic.posts_count;
-        Date createdDate = topic.post_stream.posts[0].created_at;
-        Date updatedDate = topic.post_stream.posts[0].updated_at;
-        Date lastPostedDate = topic.last_posted;
+        int postsCount = topic.postsCount;
+        Date createdDate = topic.postStream.posts[0].createdAt;
+        Date updatedDate = topic.postStream.posts[0].updatedAt;
+        Date lastPostedDate = topic.lastPosted;
 
         String maturity = tags.stream().filter(CODE_MATURITY_LEVELS::contains).findAny().orElse(null);
 
@@ -418,16 +393,19 @@ public class CommunityMarketplaceAddonService implements AddonService {
         properties.put("posts_count", postsCount);
         properties.put("tags", tags.toArray(String[]::new));
 
-        String detailedDescription = topic.post_stream.posts[0].cooked;
+        String detailedDescription = topic.postStream.posts[0].cooked;
+        String id = null;
 
         // try to extract contents or links
-        if (topic.post_stream.posts[0].link_counts != null) {
-            for (DiscoursePostLink postLink : topic.post_stream.posts[0].link_counts) {
+        if (topic.postStream.posts[0].linkCounts != null) {
+            for (DiscoursePostLink postLink : topic.postStream.posts[0].linkCounts) {
                 if (postLink.url.endsWith(".jar")) {
                     properties.put("jar_download_url", postLink.url);
+                    id = determineIdFromUrl(postLink.url);
                 }
                 if (postLink.url.endsWith(".kar")) {
                     properties.put("kar_download_url", postLink.url);
+                    id = determineIdFromUrl(postLink.url);
                 }
                 if (postLink.url.endsWith(".json")) {
                     properties.put("json_download_url", postLink.url);
@@ -437,6 +415,11 @@ public class CommunityMarketplaceAddonService implements AddonService {
                 }
             }
         }
+
+        if (id == null) {
+            id = topic.id.toString(); // this is a fallback if we couldn't find a better id
+        }
+
         if (detailedDescription.contains(JSON_CODE_MARKUP_START)) {
             String jsonContent = detailedDescription.substring(
                     detailedDescription.indexOf(JSON_CODE_MARKUP_START) + JSON_CODE_MARKUP_START.length(),
@@ -450,42 +433,25 @@ public class CommunityMarketplaceAddonService implements AddonService {
             properties.put("yaml_content", unescapeEntities(yamlContent));
         }
 
-        // try to use an handler to determine if the add-on is installed
+        // try to use a handler to determine if the add-on is installed
         boolean installed = addonHandlers.stream()
-                .anyMatch(handler -> handler.supports(type, contentType) && handler.isInstalled(id));
+                .anyMatch(handler -> handler.supports(type, contentType) && handler.isInstalled(uid));
 
-        return Addon.create(id).withType(type).withContentType(contentType).withLabel(topic.title)
-                .withImageLink(topic.image_url).withLink(COMMUNITY_TOPIC_URL + topic.id.toString())
-                .withAuthor(topic.post_stream.posts[0].display_username).withMaturity(maturity)
+        return Addon.create(uid).withType(type).withId(id).withContentType(contentType).withLabel(topic.title)
+                .withImageLink(topic.imageUrl).withLink(COMMUNITY_TOPIC_URL + topic.id.toString())
+                .withAuthor(topic.postStream.posts[0].displayUsername).withMaturity(maturity)
                 .withDetailedDescription(detailedDescription).withInstalled(installed).withProperties(properties)
                 .build();
     }
 
-    private void postInstalledEvent(String extensionId) {
-        Event event = AddonEventFactory.createAddonInstalledEvent(extensionId);
-        eventPublisher.post(event);
-    }
-
-    private void postUninstalledEvent(String extensionId) {
-        Event event = AddonEventFactory.createAddonUninstalledEvent(extensionId);
-        eventPublisher.post(event);
-    }
-
-    private void postFailureEvent(String extensionId, @Nullable String msg) {
-        Event event = AddonEventFactory.createAddonFailureEvent(extensionId, msg);
-        eventPublisher.post(event);
-    }
-
-    private boolean remoteEnabled() {
-        try {
-            Configuration configuration = configurationAdmin.getConfiguration("org.openhab.addons", null);
-            if (configuration.getProperties() != null) {
-                return (boolean) Objects.requireNonNullElse(configuration.getProperties().get("remote"), true);
-            } else {
-                return true;
-            }
-        } catch (IOException e) {
-            return true;
+    private @Nullable String determineIdFromUrl(String url) {
+        Matcher matcher = BUNDLE_NAME_PATTERN.matcher(url);
+        if (matcher.matches()) {
+            String bundleName = matcher.group(1);
+            return bundleName.substring(bundleName.lastIndexOf(".") + 1);
+        } else {
+            logger.warn("Could not determine bundle name from url: {}", url);
         }
+        return null;
     }
 }
